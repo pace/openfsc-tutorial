@@ -54,10 +54,10 @@ Your POS system must map its internal pump states to one of these values:
 | `free` | Pump is idle and available for use |
 | `in-use` | Customer is currently fueling |
 | `ready-to-pay` | Fueling complete, awaiting payment (Post-Pay) |
-| `locked` | Pump has been unlocked by OpenFSC for a Pre-Auth fueling |
+| `locked` | Pump is indication the default status of the Pre-Auth workflow (can be reserved by a user to start a mobile fueling transaction) |
 | `out-of-order` | Pump is not operational |
 
-Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates an active Pre-Auth session).
+Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
 
 > The spec also defines an `in-transaction` status, but this is not used in practice. Do not implement or send it.
 
