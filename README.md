@@ -14,26 +14,16 @@ For the full protocol specification, see the [OpenFSC Protocol Specification (Ve
 
 ## Parts
 
-### [Part 1: Connection Handling](part-1-connection-handling.md)
+### [Part 1: Connection Handling](walkthrough/part-1.md)
 Covers everything needed to establish a stable, authenticated connection to the OpenFSC server — including the handshake, authentication, heartbeat handling, and reconnection behaviour. Start here.
 
-### [Part 2: Pump Status & Prices](part-2-pump-status-and-prices.md)
+### [Part 2: Pump Status & Prices](walkthrough/part-2.md)
 Covers reporting pump statuses and fuel prices, handling status subscriptions via `UpdateTTL`, and announcing products with the `PRODUCTS` / `PRODUCT` extension.
 
-### [Part 3: Transactions](part-3-transactions.md)
+### [Part 3: Transactions](walkthrough/part-3.md)
 Covers the two payment flows — Post-Pay and Pre-Auth — including how to report transactions, handle pump locking and unlocking, and process payment clearance via `CLEAR`.
 
-### [Part 4: Advanced Topics](part-4-advanced-topics.md)
+### [Part 4: Advanced Topics](walkthrough/part-4.md)
 Covers optional protocol extensions: Connection Multiplexing (for connecting multiple sites over a single channel) and Transaction Information (for card payment data delivery). High Availability documentation is pending.
 
 ---
-
-## Quick Reference: CAPABILITY Announcement
-
-The following is the full `CAPABILITY` announcement for a client implementing all features covered in this walkthrough:
-
-```
-* CAPABILITY BEAT CHARSET NEWSESSION PLAINAUTH PRICE PRODUCT PRODUCTS PUMP SESSIONS TRANSACTION TRANSACTIONINFO LOCKEDPUMP QUIT
-```
-
-Omit capabilities for extensions you have not implemented.
