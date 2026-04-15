@@ -129,16 +129,16 @@ Pre-Auth is used outside Germany and for unmanned stations. The payment is pre-a
 ### Flow Overview
 
 ```
-Pump status: free
+Pump status: locked  ← pre-auth idle state (default for Pre-Auth pumps)
   ↓ server sends UNLOCKPUMP
-Pump status: locked
+Pump status: free  ← pump is now open for this specific customer to fuel
   ↓ customer starts fueling
 Pump status: in-use
   ↓ customer finishes fueling
-Pump status: locked  ← back to locked, not ready-to-pay
+Pump status: locked  ← session still active, awaiting CLEAR (not ready-to-pay)
   ↓ client sends TRANSACTION (open, using FSCTransactionID)
   ↓ server sends CLEAR
-Pump status: free
+Pump status: locked  ← back to pre-auth idle, available for the next mobile reservation / next Pre-Auth session
 ```
 
 ### Handling UNLOCKPUMP
@@ -169,7 +169,7 @@ S5 OK
 
 Then update the pump status:
 ```
-* PUMP 3 locked
+* PUMP 3 free
 ```
 
 **Errors to return:**
@@ -199,10 +199,10 @@ The server may cancel a Pre-Auth session before fueling begins by sending `LOCKP
 S6 LOCKPUMP 3
 ```
 
-Lock the pump, cancel the pending authorization on your side, and respond:
+Cancel the pending authorization on your side and respond:
 ```
 S6 OK
-* PUMP 3 free
+* PUMP 3 locked
 ```
 
 Errors to return:
@@ -225,7 +225,14 @@ The `Reason` argument must be one of:
 - `aborted` — zero fueling / customer walked away
 - `timeout` — the system aborted due to timeout
 
-The server responds `OK` if accepted, or one of:
+The server responds `OK` if accepted. Once you receive that acknowledgement, send a pump status update to return the pump to its pre-auth idle state:
+
+```
+Server: C7 OK
+Client: * PUMP 3 locked
+```
+
+Or the server returns one of these errors:
 
 | Code | Meaning |
 |---|---|
@@ -239,7 +246,7 @@ The server responds `OK` if accepted, or one of:
 
 ## Step 6: Implement CLEAR
 
-`CLEAR` is the server's instruction to mark a transaction as paid and free the pump. It is used in both the Post-Pay and Pre-Auth flows.
+`CLEAR` is the server's instruction to mark a transaction as paid and release the pump. It is used in both the Post-Pay and Pre-Auth flows. The pump status after a successful `CLEAR` differs between the two: Post-Pay pumps return to `free`; Pre-Auth pumps return to `locked` (their idle state).
 
 **Incoming request:**
 ```
@@ -257,13 +264,18 @@ Arguments:
 
 **On success:**
 1. Mark the transaction as cleared in your POS.
-2. Free the pump.
-3. Reply `OK`.
-4. Send a proactive pump status update:
+2. Reply `OK`.
+3. Send a proactive pump status update. The status to report depends on the flow:
+   - **Post-Pay:** return the pump to `free` — it is now idle and available for any customer.
+   - **Pre-Auth:** return the pump to `locked` — this is the Pre-Auth idle state, signalling it is available for the next mobile reservation.
 
 ```
 S5 OK
-* PUMP 3 free
+* PUMP 3 free   ← Post-Pay
+```
+```
+S5 OK
+* PUMP 3 locked   ← Pre-Auth
 ```
 
 **Important:** Mark cleared transactions in your reconciliation lists with "Clearance source: Connected Fueling" and the PaymentMethod used. This is required for back-office reconciliation with the payment operator.
@@ -346,7 +358,7 @@ Client: * PUMP 3 free
 
 Server: S1 UNLOCKPUMP 3 EUR 100.00 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 Client: S1 OK
-Client: * PUMP 3 locked
+Client: * PUMP 3 free
 
 → Customer starts fueling
 
@@ -361,7 +373,7 @@ Client: * TRANSACTION 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f open 0100 EUR 86.83
 
 Server: S2 CLEAR 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 Client: S2 OK
-Client: * PUMP 3 free
+Client: * PUMP 3 locked
 
 ---
 
@@ -369,10 +381,11 @@ Client: * PUMP 3 free
 
 Server: S1 UNLOCKPUMP 3 EUR 100.00 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 Client: S1 OK
-Client: * PUMP 3 locked
+Client: * PUMP 3 free
 
 Client: C2 LOCKEDPUMP 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f aborted
 Server: C2 OK
+Client: * PUMP 3 locked
 ```
 
 ---

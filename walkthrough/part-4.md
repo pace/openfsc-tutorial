@@ -203,7 +203,7 @@ Server: * TRANSACTIONINFO 70644955-ef32-4d33-a88b-67b500a7c00d Mileage 176439
 
 Server: S2 UNLOCKPUMP 1 EUR 100.00 70644955-ef32-4d33-a88b-67b500a7c00d pace
 Client: S2 OK
-Client: * PUMP 1 locked
+Client: * PUMP 1 free
 ```
 
 ### Implementation Notes
