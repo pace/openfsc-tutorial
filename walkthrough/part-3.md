@@ -246,7 +246,7 @@ Or the server returns one of these errors:
 
 ## Step 6: Implement CLEAR
 
-`CLEAR` is the server's instruction to mark a transaction as paid and free the pump. It is used in both the Post-Pay and Pre-Auth flows.
+`CLEAR` is the server's instruction to mark a transaction as paid and release the pump. It is used in both the Post-Pay and Pre-Auth flows. The pump status after a successful `CLEAR` differs between the two: Post-Pay pumps return to `free`; Pre-Auth pumps return to `locked` (their idle state).
 
 **Incoming request:**
 ```
@@ -264,13 +264,18 @@ Arguments:
 
 **On success:**
 1. Mark the transaction as cleared in your POS.
-2. Free the pump.
-3. Reply `OK`.
-4. Send a proactive pump status update:
+2. Reply `OK`.
+3. Send a proactive pump status update. The status to report depends on the flow:
+   - **Post-Pay:** return the pump to `free` — it is now idle and available for any customer.
+   - **Pre-Auth:** return the pump to `locked` — this is the Pre-Auth idle state, signalling it is available for the next mobile reservation.
 
 ```
 S5 OK
-* PUMP 3 free
+* PUMP 3 free   ← Post-Pay
+```
+```
+S5 OK
+* PUMP 3 locked   ← Pre-Auth
 ```
 
 **Important:** Mark cleared transactions in your reconciliation lists with "Clearance source: Connected Fueling" and the PaymentMethod used. This is required for back-office reconciliation with the payment operator.
