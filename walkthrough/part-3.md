@@ -138,7 +138,7 @@ Pump status: in-use
 Pump status: locked  ← session still active, awaiting CLEAR (not ready-to-pay)
   ↓ client sends TRANSACTION (open, using FSCTransactionID)
   ↓ server sends CLEAR
-Pump status: locked  ← back to pre-auth idle, available for next customer
+Pump status: locked  ← back to pre-auth idle, available for the next mobile reservation / next Pre-Auth session
 ```
 
 ### Handling UNLOCKPUMP
