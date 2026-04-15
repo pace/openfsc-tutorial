@@ -129,16 +129,16 @@ Pre-Auth is used outside Germany and for unmanned stations. The payment is pre-a
 ### Flow Overview
 
 ```
-Pump status: free
+Pump status: locked  ← pre-auth idle state (default for Pre-Auth pumps)
   ↓ server sends UNLOCKPUMP
-Pump status: locked
+Pump status: free  ← pump is now open for this specific customer to fuel
   ↓ customer starts fueling
 Pump status: in-use
   ↓ customer finishes fueling
-Pump status: locked  ← back to locked, not ready-to-pay
+Pump status: locked  ← session still active, awaiting CLEAR (not ready-to-pay)
   ↓ client sends TRANSACTION (open, using FSCTransactionID)
   ↓ server sends CLEAR
-Pump status: free
+Pump status: locked  ← back to pre-auth idle, available for next customer
 ```
 
 ### Handling UNLOCKPUMP
@@ -169,7 +169,7 @@ S5 OK
 
 Then update the pump status:
 ```
-* PUMP 3 locked
+* PUMP 3 free
 ```
 
 **Errors to return:**
@@ -199,10 +199,10 @@ The server may cancel a Pre-Auth session before fueling begins by sending `LOCKP
 S6 LOCKPUMP 3
 ```
 
-Lock the pump, cancel the pending authorization on your side, and respond:
+Cancel the pending authorization on your side and respond:
 ```
 S6 OK
-* PUMP 3 free
+* PUMP 3 locked
 ```
 
 Errors to return:
@@ -225,7 +225,14 @@ The `Reason` argument must be one of:
 - `aborted` — zero fueling / customer walked away
 - `timeout` — the system aborted due to timeout
 
-The server responds `OK` if accepted, or one of:
+The server responds `OK` if accepted. Once you receive that acknowledgement, send a pump status update to return the pump to its pre-auth idle state:
+
+```
+Server: C7 OK
+Client: * PUMP 3 locked
+```
+
+Or the server returns one of these errors:
 
 | Code | Meaning |
 |---|---|
@@ -346,7 +353,7 @@ Client: * PUMP 3 free
 
 Server: S1 UNLOCKPUMP 3 EUR 100.00 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 Client: S1 OK
-Client: * PUMP 3 locked
+Client: * PUMP 3 free
 
 → Customer starts fueling
 
@@ -361,7 +368,7 @@ Client: * TRANSACTION 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f open 0100 EUR 86.83
 
 Server: S2 CLEAR 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 Client: S2 OK
-Client: * PUMP 3 free
+Client: * PUMP 3 locked
 
 ---
 
@@ -369,10 +376,11 @@ Client: * PUMP 3 free
 
 Server: S1 UNLOCKPUMP 3 EUR 100.00 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 Client: S1 OK
-Client: * PUMP 3 locked
+Client: * PUMP 3 free
 
 Client: C2 LOCKEDPUMP 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f aborted
 Server: C2 OK
+Client: * PUMP 3 locked
 ```
 
 ---
