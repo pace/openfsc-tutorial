@@ -59,7 +59,7 @@ Your POS system must map its internal pump states to one of these values:
 
 Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
 
-> The spec also defines an `in-transaction` status, but this is not used in practice. Do not implement or send it.
+> The spec also lists an `in-transaction` status, but it is deprecated. Do not implement or send it.
 
 ---
 
