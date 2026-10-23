@@ -137,7 +137,7 @@ Before sending prices, you must announce your products and their categories to t
 ```
 Server: S2 PRODUCTS
 Client: * PRODUCT 0100 ron98 19.0
-Client: * PRODUCT 0200 ron95e10 19.0
+Client: * PRODUCT 0200 ron95e10 19.0 LTR
 Client: * PRODUCT 0300 ron95e5 19.0
 Client: * PRODUCT 0400 diesel 19.0
 Client: S2 OK
@@ -152,6 +152,8 @@ Client: S2 OK
 | VATRate | `19.0` | ✓ | VAT rate for this product in percent |
 | Unit | `LTR` | optional | Required if OptionalName is provided |
 | OptionalName | `Super Müller Diesel` | optional | Human-readable name; overrides the `Description` from `PRICE` if provided |
+
+`Unit` may be sent without `OptionalName` (e.g. `PRODUCT 0200 ron95e10 19.0 LTR`), but `OptionalName` can only be sent together with `Unit`.
 
 ### Product Categories
 
