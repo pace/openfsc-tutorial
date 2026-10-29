@@ -24,7 +24,7 @@ Establish a persistent, reliable, ordered connection to the OpenFSC server. The 
 
 Once the connection is open, you are in the **Not Authenticated State**. No authenticated methods may be used yet.
 
-> **Important:** If the connection drops for any reason, your client must reconnect immediately and restart the handshake from scratch.
+> **Important:** If the connection drops for any reason, your client must reconnect and restart the handshake from scratch. Step 10 covers how to do this robustly.
 
 ---
 
@@ -190,7 +190,7 @@ The server may send a `QUIT` notification at any time to signal it is about to d
 When you receive this, the server will drop the connection immediately after. Your client should:
 1. Log the reason for diagnostics.
 2. Close the connection cleanly on your side.
-3. **Immediately attempt to reconnect** and restart the handshake from Step 1.
+3. **Reconnect** and restart the handshake from Step 1, following the retry rules in Step 10.
 
 Your client may also send `QUIT` before intentionally disconnecting:
 ```
@@ -208,7 +208,71 @@ During development (and in production), you may receive methods you don't yet ha
 - **Unknown method received:** Reply with `ERR 405 Method unknown` using the incoming tag, then continue operating normally. Do not crash.
 - **Bad request from your side:** If you receive `ERR 400 Bad request`, inspect the message you sent — it likely has a malformed tag, argument, or method name.
 - **Wrong state error (`403`):** You sent an authenticated-state method before completing the handshake (or vice versa). Check your state machine.
-- **Unexpected disconnect:** Always reconnect immediately and restart the handshake.
+- **Unexpected disconnect:** Always reconnect and restart the handshake (see Step 10).
+
+---
+
+## Step 10: Reconnect Robustly
+
+A connection to the OpenFSC server is expected to stay up indefinitely, so your client will spend its whole life either connected or trying to reconnect. Getting this loop right matters as much as any individual method.
+
+### When to Reconnect
+
+Reconnect whenever one of these happens:
+
+- The server sends `QUIT` (Step 8).
+- The socket is closed or reports an error.
+- The connection looks dead, even though the socket still appears open (see below).
+
+Reconnecting always means opening a **new** socket and running the full handshake again — `CAPABILITY`, optionally `CHARSET`, then `PLAINAUTH` (Steps 1–5). Nothing carries over from the previous connection.
+
+### Detect Dead Connections
+
+A TCP connection can go *half-open*: a VPN tunnel or NAT gateway silently drops it, but neither side's socket reports an error. Your client keeps waiting for messages that will never arrive. Don't rely on the socket alone to tell you the connection is gone.
+
+- **Use transport-level keepalive.** Enable TCP keepalive on raw TCP sockets, or send WebSocket ping frames when using WSS, and close the connection if no response arrives within 30–60 seconds. This works regardless of how much protocol traffic is flowing and should be your primary mechanism.
+- **Use the heartbeat as a fallback.** The server sends a `HEARTBEAT` once it hasn't heard from your client for about a minute. So if **2 minutes** pass after your last outgoing message and nothing at all has arrived from the server, treat the connection as dead, close it and reconnect.
+
+Note the limitation of the heartbeat check: every message your client sends restarts the server's idle timer. A client that sends notifications frequently may never receive a `HEARTBEAT` at all — which is fine on a healthy connection, but means the fallback can't detect a dead one. That's why transport-level keepalive comes first.
+
+### Back Off Between Attempts
+
+Reconnecting in a tight loop while the server is unreachable wastes resources on both sides and can slow down recovery for everyone. Use exponential backoff with jitter:
+
+1. Make the first reconnect attempt right away.
+2. If it fails, wait 1 second before the next attempt, then 2, 4, 8, … seconds, capped at **60 seconds**.
+3. Add random jitter of ±20% to each delay so that many sites don't reconnect in lockstep after a server restart.
+4. Reset the delay only after `PLAINAUTH` has been answered with `OK` — not merely when the socket opens. Otherwise a server that accepts connections and then immediately closes them would keep your client in a tight loop.
+
+The one exception is `ERR 401` on `PLAINAUTH` (Step 5): wrong credentials won't fix themselves, so stop the retry loop, surface the error and wait for operator intervention.
+
+### Clean Up Connection State
+
+When a connection ends, discard everything that belonged to it:
+
+- **Pending outgoing requests:** fail every entry in your tag manager (Step 6). A response for those tags will never arrive. Don't resend them blindly on the new connection — decide per request whether it is still relevant.
+- **Incoming requests you haven't answered yet:** drop them. The server tags (`S…`) belong to the old connection and must not be answered on the new one.
+- **The line-reader buffer:** discard any partially received message.
+- **Notifications that couldn't be sent:** don't queue and replay them. Notifications are fire-and-forget, and the server will request current state after you reconnect.
+
+### What to Expect After Reconnecting
+
+Once you're authenticated again, the server rebuilds its view of your site by sending requests — your client just needs to answer them as described in Parts 2 and 3:
+
+1. `PRODUCTS` — if your client announced it (Part 2, Step 5).
+2. `PRICES` (Part 2, Step 6).
+3. A retried `CLEAR` for any transaction whose clearing was interrupted by the disconnect (Part 3, "Handling CLEAR After Reconnection").
+4. `TRANSACTIONS` (Part 3, Step 2).
+
+Pump statuses aren't requested on connect — the server asks for them via `PUMPS` or `PUMPSTATUS` when a user needs them.
+
+Your implementation checklist for reconnection:
+- [ ] Reconnect on `QUIT`, on socket close/error, and when the connection looks dead.
+- [ ] Enable TCP keepalive or WebSocket pings, and use the 2-minute heartbeat check as a fallback.
+- [ ] Back off exponentially with jitter (1 s → 60 s cap), resetting only after a successful `PLAINAUTH`.
+- [ ] Stop retrying on `ERR 401` and alert an operator.
+- [ ] Fail pending requests, drop unanswered server requests and clear the read buffer on disconnect.
+- [ ] After re-authentication, answer the server's `PRODUCTS`, `PRICES`, `CLEAR` and `TRANSACTIONS` requests.
 
 ---
 
@@ -229,10 +293,10 @@ Here is the complete lifecycle of a connection:
 [Authenticated State]
   • Normal operation (pumps, prices, transactions)
   • Server sends HEARTBEAT periodically → client replies BEAT + OK
-  • Either side may send QUIT → reconnect immediately
+  • Either side may send QUIT → reconnect (Step 10)
        │
        ▼
-[Disconnected → Reconnect immediately]
+[Disconnected → Reconnect with backoff (Step 10)]
 ```
 
 ---
