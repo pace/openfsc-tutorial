@@ -126,6 +126,18 @@ C2 NEWSESSION backup 2
 
 The server communicates exclusively through the session with the highest priority (`1`). If that session disconnects, the server automatically switches to the next available session (`2`). This is the basis for the High Availability pattern covered in the next extension.
 
+### Reconnecting a Multiplexed Connection
+
+If the shared TCP/WebSocket connection drops, **every session on it is gone**. Reconnect as described in Part 1, Step 10, with one connection-level retry loop and backoff, then rebuild the sessions:
+
+1. Exchange `CAPABILITY` on the new connection. Don't authenticate it — it stays the control channel.
+2. Recreate each session with `NEWSESSION` (reusing the same SessionIDs and priorities is fine) and authenticate it with `PLAINAUTH`.
+3. Answer the `PRODUCTS`, `PRICES`, `CLEAR` and `TRANSACTIONS` requests the server then sends on each session, exactly as for a standalone connection.
+
+If a single session's `PLAINAUTH` fails with `ERR 401`, leave that site disconnected and alert an operator — don't tear down the other sessions or the shared connection because of it.
+
+For dead-connection detection, rely on transport-level keepalive (TCP keepalive or WebSocket pings) on the shared connection. Sessions are only sent a `HEARTBEAT` after about 10 minutes of silence, which is far too slow to be a useful liveness signal.
+
 ### CAPABILITY Update
 
 Add `NEWSESSION` and `SESSIONS` to your capability announcement:

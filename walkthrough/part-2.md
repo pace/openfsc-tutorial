@@ -1,7 +1,7 @@
 # OpenFSC Client Implementation Walkthrough
 ## Part 2: Pump Status & Prices
 
-With a stable, authenticated connection in place (Part 1), the server will almost immediately start asking for pump and price data. This part covers how to respond to those requests, how to proactively push updates, and the important concept of status subscriptions via `UpdateTTL`.
+With a stable, authenticated connection in place (Part 1), the server will almost immediately ask for your products and prices. Pump statuses follow on demand, whenever a user needs them. This part covers how to respond to those requests, how to proactively push updates, and the important concept of status subscriptions via `UpdateTTL`.
 
 ---
 
@@ -271,6 +271,8 @@ Server: S1 PRICES
 Client: * PRICE 0100 LTR EUR 1.339 Super Plus
 Client: * PRICE 0200 LTR EUR 1.229 Super 95
 Client: S1 OK
+
+→ A user opens the station in the app
 
 Server: S2 PUMPS
 Client: * PUMP 1 in-use
