@@ -8,7 +8,7 @@ This walkthrough guides developers through implementing an OpenFSC client that c
 
 It is written for engineers who are new to the OpenFSC protocol. Each part builds on the previous one, so it is recommended to read them in order.
 
-For the full protocol specification, see the [OpenFSC Protocol Specification (Version 1.0)](../openfsc-spec.md).
+For the full protocol specification, see the [OpenFSC Protocol Specification (Version 1.0)](https://github.com/pace/openfsc-spec/blob/main/1.0/openfsc-spec.md).
 
 ---
 

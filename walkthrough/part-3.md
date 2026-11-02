@@ -285,7 +285,7 @@ S5 OK
 | Code | When to return | Meaning to the server |
 |---|---|---|
 | `404` | Pump and SiteTransactionID are unknown | Clearing was too long ago, client no longer knows the transaction → triggers back-office process |
-| `403` | Payment method not permitted | Customer paid in the shop instead → server cancels the payment transaction |
+| `403` | Payment method not permitted; or, on a retried `CLEAR`, the transaction was paid by other means (usually in the shop) | In the retry case the server cancels its payment transaction |
 | `410` | Transaction not open, FSCTransactionID matches | The initial `CLEAR` was already processed successfully → transaction confirmed |
 
 ### Handling CLEAR After Reconnection

@@ -56,7 +56,7 @@ Your POS system must map its internal pump states to one of these values:
 | `free` | Pump is idle and available for use |
 | `in-use` | Customer is currently fueling |
 | `ready-to-pay` | Fueling complete, awaiting payment (Post-Pay) |
-| `locked` | Pump is indication the default status of the Pre-Auth workflow (can be reserved by a user to start a mobile fueling transaction) |
+| `locked` | Pump is locked, which is the default status in the Pre-Auth workflow (it can be reserved by a user to start a mobile fueling transaction) |
 | `out-of-order` | Pump is not operational |
 
 Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
@@ -226,7 +226,9 @@ Each `PRICE` notification has the following fields:
 
 The supported currencies are listed in the spec's [Supported Currencies](https://github.com/pace/openfsc-spec/blob/main/1.0/openfsc-spec.md#416-supported-currencies) (4.1.6): `EUR`, `CHF`, `GBP`, `DKK`, `SEK`, `NOK`, `PLN`, `CZK`, `HUF`, `RON`, `ISK`, `RSD`, `MKD`, `MDL`, `UAH`, `TRY`, `BAM`, `ALL` (others on request).
 
-Note that the description is the last argument and is "variadic" — it can contain spaces, unlike all other arguments. Everything after the fourth space on a `PRICE` line is the description.
+**Use one currency per site:** send the same `Currency` in all `PRICE`, `TRANSACTION` and `UNLOCKPUMP` messages of a site. The spec does not mandate this yet, but it is a strong recommendation and may become a requirement in a later spec version.
+
+Note that the description is the last argument and is "variadic" — it can contain spaces, unlike all other arguments. Everything after the `PricePerUnit` argument is the description.
 
 ---
 
