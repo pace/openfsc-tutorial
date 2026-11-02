@@ -105,7 +105,7 @@ But now, for the next 30 seconds, if pump 3 changes state, you must proactively 
 These are unsolicited `*`-tagged notifications — no `OK` is needed for them.
 
 Implementation notes:
-- The valid TTL range is **30 to 300 seconds**. If the value is outside this range, reply with `ERR 416 UpdateTTL is too large or too low`.
+- The valid TTL range is **30 to 300 seconds**. If the value is outside this range, reply with `ERR 416 UpdateTTL is too high or too low (valid range: 30 to 300, both inclusive)`.
 - A new `PUMPSTATUS` request for the same pump resets the subscription timer.
 - **Only send updates when the status actually changes.** Don't poll and send the same status repeatedly.
 - You can have subscriptions active for multiple pumps simultaneously — track them per pump.
