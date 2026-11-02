@@ -236,13 +236,15 @@ This ensures that customers browsing the app before arriving at the forecourt al
 
 ## Step 8: Update Your CAPABILITY Announcement
 
-Now that you're implementing pump, price, and product mapping methods, update the `CAPABILITY` notification you send during the handshake (Part 1, Step 3) to include the new methods:
+Now that you're implementing pump, price, and product mapping methods, update the `CAPABILITY` notification you send during the handshake (Part 1, Step 3) to include the new method:
 
 ```
-* CAPABILITY BEAT CHARSET PLAINAUTH PRICE PRODUCT PRODUCTS PUMP TRANSACTION LOCKEDPUMP QUIT
+* CAPABILITY CLEAR HEARTBEAT PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS
 ```
 
-Added here: `PRICE`, `PRODUCT`, `PRODUCTS`, `PUMP`. (`TRANSACTION` and `LOCKEDPUMP` are for Part 3, but it's shown here for completeness.)
+Added here: `PRODUCTS`. `PRICES`, `PUMPS` and `PUMPSTATUS` are part of the core set from Part 1, and you implement them in this part. (`CLEAR` and `TRANSACTIONS` are for Part 3, but they are shown here for completeness.)
+
+Remember that `CAPABILITY` lists the methods your client *handles*, i.e. the server's requests. `PRICE`, `PUMP` and `PRODUCT` are notifications your client *sends*, so they don't belong in your list.
 
 ---
 

@@ -303,11 +303,19 @@ Build this logic into your `CLEAR` handler from the start, not as an afterthough
 
 ## Step 7: Update Your CAPABILITY Announcement
 
-Make sure all newly implemented methods are reflected in your `CAPABILITY` notification:
+Make sure all newly implemented methods are reflected in your `CAPABILITY` notification. For Post-Pay, the list from Part 2 is already complete:
 
 ```
-* CAPABILITY BEAT CHARSET PLAINAUTH PRICE PRODUCT PRODUCTS PUMP TRANSACTION LOCKEDPUMP QUIT
+* CAPABILITY CLEAR HEARTBEAT PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS
 ```
+
+If you also implement Pre-Auth, add `LOCKPUMP` and `UNLOCKPUMP`:
+
+```
+* CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS UNLOCKPUMP
+```
+
+`TRANSACTION` and `LOCKEDPUMP` are notifications/requests your client *sends*, so they are not part of your list.
 
 ---
 

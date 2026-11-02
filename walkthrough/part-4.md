@@ -31,7 +31,7 @@ Messages without a session prefix belong to the initial (non-multiplexed) connec
 
 **1. Open the connection and exchange CAPABILITY as normal (Part 1, Steps 1–3).**
 
-Do not authenticate the initial connection. Check that the server announces `NEWSESSION` in its capabilities — if it does not, multiplexing is not supported and you must fall back to separate connections per site.
+Do not authenticate the initial connection. Check that the server announces `NEWSESSION` and `SESSIONS` in its capabilities — if it does not, multiplexing is not supported and you must fall back to separate connections per site.
 
 **2. Create a session with NEWSESSION:**
 
@@ -140,11 +140,13 @@ For dead-connection detection, rely on transport-level keepalive (TCP keepalive 
 
 ### CAPABILITY Update
 
-Add `NEWSESSION` and `SESSIONS` to your capability announcement:
+Your own capability announcement does not change. `NEWSESSION` and `SESSIONS` are methods your client *sends*, so only the server announces them. If it supports multiplexing, its list looks like this:
 
 ```
-* CAPABILITY BEAT CHARSET NEWSESSION PLAINAUTH PRICE PRODUCT PRODUCTS PUMP SESSIONS TRANSACTION LOCKEDPUMP QUIT
+* CAPABILITY BEAT CHARSET NEWSESSION PLAINAUTH PRICE PUMP SESSIONS TRANSACTION LOCKEDPUMP QUIT
 ```
+
+Your client keeps announcing the methods it handles (Part 3, Step 7) and only checks that the server's list contains `NEWSESSION` and `SESSIONS`.
 
 ---
 
@@ -226,8 +228,8 @@ Client: * PUMP 1 free
 
 ### CAPABILITY Update
 
-Add `TRANSACTIONINFO` to your capability announcement:
+Add `TRANSACTIONINFO` to your capability announcement, since your client handles that notification:
 
 ```
-* CAPABILITY BEAT CHARSET NEWSESSION PLAINAUTH PRICE PRODUCT PRODUCTS PUMP SESSIONS TRANSACTION TRANSACTIONINFO LOCKEDPUMP QUIT
+* CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONINFO TRANSACTIONS UNLOCKPUMP
 ```

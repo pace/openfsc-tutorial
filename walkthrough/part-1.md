@@ -54,25 +54,25 @@ Immediately after the connection is open, **both sides send a `CAPABILITY` notif
 **What to send:**
 
 ```
-* CAPABILITY BEAT CHARSET PLAINAUTH PRICE PUMP TRANSACTION LOCKEDPUMP QUIT
+* CAPABILITY CLEAR HEARTBEAT PRICES PUMPS PUMPSTATUS QUIT TRANSACTIONS
 ```
 
-This tells the server which methods *your client* can handle. At minimum you must announce the methods you actually implement. For the connection phase, the relevant ones are:
+This tells the server which methods *your client* can handle, i.e. the requests and notifications the server may send to you. At minimum you must announce the methods you actually implement. For the connection phase, the relevant ones are:
 
-- `BEAT` — your client can respond to heartbeats
-- `CHARSET` — your client supports encoding negotiation
-- `PLAINAUTH` — your client supports plain credential authentication
+- `HEARTBEAT` — your client handles heartbeat requests (and answers them with `BEAT`, see Step 7)
 - `QUIT` — your client understands disconnect notifications
 
-As you implement more functionality (pumps, prices, transactions), you will add those methods to this list.
+The remaining methods in the list (`CLEAR`, `PRICES`, `PUMPS`, `PUMPSTATUS`, `TRANSACTIONS`) are the server requests you will implement in Parts 2 and 3. As you implement more functionality, you will add the matching methods to this list: `PRODUCTS` in Part 2, `LOCKPUMP` and `UNLOCKPUMP` (Pre-Auth only) in Part 3 and `TRANSACTIONINFO` in Part 4.
+
+> **Note:** `CAPABILITY` lists the methods the *sending* party handles. Methods your client *sends* (`CHARSET`, `PLAINAUTH`, `BEAT`, `PRICE`, `PUMP`, `TRANSACTION`, `LOCKEDPUMP`) belong to the server's list, not yours. Don't copy the server's list below into your own announcement.
 
 **What to expect from the server:**
 
 ```
-* CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PUMPS PUMPSTATUS QUIT TRANSACTIONS UNLOCKPUMP
+* CAPABILITY BEAT CHARSET PLAINAUTH PRICE PUMP TRANSACTION LOCKEDPUMP QUIT
 ```
 
-Parse the server's capability list and store it. In the future, you can use this to detect which optional features the server supports. For now, note that if the server does not announce `HEARTBEAT`, it won't send heartbeat requests — but in practice all servers will.
+Parse the server's capability list and store it. The server announces the methods *it* handles: `BEAT`, `CHARSET`, `PLAINAUTH`, `PRICE`, `PUMP`, `TRANSACTION`, `LOCKEDPUMP` and `QUIT`. In the future, you can use this to detect which optional features the server supports (for example `NEWSESSION` and `SESSIONS` if it supports Connection Multiplexing, see Part 4). Your client announces `HEARTBEAT` because it handles that request, so make sure it is in your list.
 
 > `CAPABILITY` is a **Notification** (tag `*`), so neither side sends an `OK` or `ERR` in response. Just send it and move on.
 
