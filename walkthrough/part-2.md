@@ -136,6 +136,8 @@ Before sending prices, you must announce your products and their categories to t
 
 ### How it Works
 
+The server asks for `PRODUCTS` before it asks for `PRICES`, so that it knows which products the following `PRICE` notifications refer to.
+
 `PRODUCTS` follows the same request/notification/OK pattern as `PUMPS` and `PRICES`. The server sends a `PRODUCTS` request, and your client responds with one `PRODUCT` notification per product, followed by `OK`:
 
 ```

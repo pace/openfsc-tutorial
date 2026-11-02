@@ -326,34 +326,38 @@ If you also implement Pre-Auth, add `LOCKPUMP` and `UNLOCKPUMP`:
 ```
 → Authentication complete (Part 1)
 
-Server: S0 PRICES
-Client: * PRICE 0100 LTR EUR 1.339 Super Plus
+Server: S0 PRODUCTS
+Client: * PRODUCT 0100 ron98 19.0
 Client: S0 OK
 
-Server: S1 PUMPS
+Server: S1 PRICES
+Client: * PRICE 0100 LTR EUR 1.339 Super Plus
+Client: S1 OK
+
+Server: S2 PUMPS
 Client: * PUMP 1 free
 Client: * PUMP 2 free
 Client: * PUMP 3 in-use
 Client: * PUMP 4 ready-to-pay
-Client: S1 OK
-
-Server: S2 PUMPSTATUS 3 30
-Client: * PUMP 3 in-use
 Client: S2 OK
+
+Server: S3 PUMPSTATUS 3 30
+Client: * PUMP 3 in-use
+Client: S3 OK
 
 → Customer finishes fueling on pump 3
 
 Client: * PUMP 3 ready-to-pay
 Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 
-Server: S3 TRANSACTIONS
+Server: S4 TRANSACTIONS
 Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
-Client: S3 OK
+Client: S4 OK
 
 → Customer pays via app
 
-Server: S4 CLEAR 3 c71b9838ad3dfc15 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
-Client: S4 OK
+Server: S5 CLEAR 3 c71b9838ad3dfc15 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
+Client: S5 OK
 Client: * PUMP 3 free
 ```
 
