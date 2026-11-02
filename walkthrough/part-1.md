@@ -151,7 +151,7 @@ Keep client-originated tags and server-originated tags separate to avoid collisi
 
 ## Step 7: Implement HEARTBEAT / BEAT
 
-The server will periodically send a `HEARTBEAT` request. **You must respond within 20 seconds**, or the server will consider the connection unstable and eventually force-close it with a `QUIT`.
+The server will periodically send a `HEARTBEAT` request. **You must respond within 20 seconds**, or the server will consider the connection unstable. By default, the server closes the connection with a `QUIT` after 3 unanswered heartbeats.
 
 An incoming heartbeat looks like:
 ```
@@ -231,7 +231,7 @@ Reconnecting always means opening a **new** socket and running the full handshak
 A TCP connection can go *half-open*: a VPN tunnel or NAT gateway silently drops it, but neither side's socket reports an error. Your client keeps waiting for messages that will never arrive. Don't rely on the socket alone to tell you the connection is gone.
 
 - **Use transport-level keepalive.** Enable TCP keepalive on raw TCP sockets, or send WebSocket ping frames when using WSS, and close the connection if no response arrives within 30–60 seconds. This works regardless of how much protocol traffic is flowing and should be your primary mechanism.
-- **Use the heartbeat as a fallback.** The server sends a `HEARTBEAT` once it hasn't heard from your client for about a minute. So if **2 minutes** pass after your last outgoing message and nothing at all has arrived from the server, treat the connection as dead, close it and reconnect.
+- **Use the heartbeat as a fallback.** By default, the server sends a `HEARTBEAT` once it hasn't heard from your client for about a minute (this interval is server-side configuration, not part of the spec). So if **2 minutes** pass after your last outgoing message and nothing at all has arrived from the server, treat the connection as dead, close it and reconnect.
 
 Note the limitation of the heartbeat check: every message your client sends restarts the server's idle timer. A client that sends notifications frequently may never receive a `HEARTBEAT` at all — which is fine on a healthy connection, but means the fallback can't detect a dead one. That's why transport-level keepalive comes first.
 

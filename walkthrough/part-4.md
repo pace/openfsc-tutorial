@@ -136,7 +136,7 @@ If the shared TCP/WebSocket connection drops, **every session on it is gone**. R
 
 If a single session's `PLAINAUTH` fails with `ERR 401`, leave that site disconnected and alert an operator — don't tear down the other sessions or the shared connection because of it.
 
-For dead-connection detection, rely on transport-level keepalive (TCP keepalive or WebSocket pings) on the shared connection. Sessions are only sent a `HEARTBEAT` after about 10 minutes of silence, which is far too slow to be a useful liveness signal.
+For dead-connection detection, rely on transport-level keepalive (TCP keepalive or WebSocket pings) on the shared connection. By default, sessions are only sent a `HEARTBEAT` after about 10 minutes of silence (server-side configuration, not part of the spec), which is far too slow to be a useful liveness signal.
 
 ### CAPABILITY Update
 
