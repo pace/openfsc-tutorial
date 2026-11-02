@@ -54,25 +54,25 @@ Immediately after the connection is open, **both sides send a `CAPABILITY` notif
 **What to send:**
 
 ```
-* CAPABILITY BEAT CHARSET PLAINAUTH PRICE PUMP TRANSACTION LOCKEDPUMP QUIT
+* CAPABILITY CLEAR HEARTBEAT PRICES PUMPS PUMPSTATUS QUIT TRANSACTIONS
 ```
 
-This tells the server which methods *your client* can handle. At minimum you must announce the methods you actually implement. For the connection phase, the relevant ones are:
+This tells the server which methods *your client* can handle, i.e. the requests and notifications the server may send to you. At minimum you must announce the methods you actually implement. For the connection phase, the relevant ones are:
 
-- `BEAT` — your client can respond to heartbeats
-- `CHARSET` — your client supports encoding negotiation
-- `PLAINAUTH` — your client supports plain credential authentication
+- `HEARTBEAT` — your client handles heartbeat requests (and answers them with `BEAT`, see Step 7)
 - `QUIT` — your client understands disconnect notifications
 
-As you implement more functionality (pumps, prices, transactions), you will add those methods to this list.
+The remaining methods in the list (`CLEAR`, `PRICES`, `PUMPS`, `PUMPSTATUS`, `TRANSACTIONS`) are the server requests you will implement in Parts 2 and 3. As you implement more functionality, you will add the matching methods to this list: `PRODUCTS` in Part 2, `LOCKPUMP` and `UNLOCKPUMP` (Pre-Auth only) in Part 3 and `TRANSACTIONINFO` in Part 4.
+
+> **Note:** `CAPABILITY` lists the methods the *sending* party handles. Methods your client *sends* (`CHARSET`, `PLAINAUTH`, `BEAT`, `PRICE`, `PUMP`, `TRANSACTION`, `LOCKEDPUMP`) belong to the server's list, not yours. Don't copy the server's list below into your own announcement.
 
 **What to expect from the server:**
 
 ```
-* CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PUMPS PUMPSTATUS QUIT TRANSACTIONS UNLOCKPUMP
+* CAPABILITY BEAT CHARSET PLAINAUTH PRICE PUMP TRANSACTION LOCKEDPUMP QUIT
 ```
 
-Parse the server's capability list and store it. In the future, you can use this to detect which optional features the server supports. For now, note that if the server does not announce `HEARTBEAT`, it won't send heartbeat requests — but in practice all servers will.
+Parse the server's capability list and store it. The server announces the methods *it* handles: `BEAT`, `CHARSET`, `PLAINAUTH`, `PRICE`, `PUMP`, `TRANSACTION`, `LOCKEDPUMP` and `QUIT`. In the future, you can use this to detect which optional features the server supports (for example `NEWSESSION` and `SESSIONS` if it supports Connection Multiplexing, see Part 4). Your client announces `HEARTBEAT` because it handles that request, so make sure it is in your list.
 
 > `CAPABILITY` is a **Notification** (tag `*`), so neither side sends an `OK` or `ERR` in response. Just send it and move on.
 
@@ -151,7 +151,7 @@ Keep client-originated tags and server-originated tags separate to avoid collisi
 
 ## Step 7: Implement HEARTBEAT / BEAT
 
-The server will periodically send a `HEARTBEAT` request. **You must respond within 20 seconds**, or the server will consider the connection unstable and eventually force-close it with a `QUIT`.
+The server will periodically send a `HEARTBEAT` request. **You must respond within 20 seconds**, or the server will consider the connection unstable. By default, the server closes the connection with a `QUIT` after 3 unanswered heartbeats.
 
 An incoming heartbeat looks like:
 ```
@@ -231,7 +231,7 @@ Reconnecting always means opening a **new** socket and running the full handshak
 A TCP connection can go *half-open*: a VPN tunnel or NAT gateway silently drops it, but neither side's socket reports an error. Your client keeps waiting for messages that will never arrive. Don't rely on the socket alone to tell you the connection is gone.
 
 - **Use transport-level keepalive.** Enable TCP keepalive on raw TCP sockets, or send WebSocket ping frames when using WSS, and close the connection if no response arrives within 30–60 seconds. This works regardless of how much protocol traffic is flowing and should be your primary mechanism.
-- **Use the heartbeat as a fallback.** The server sends a `HEARTBEAT` once it hasn't heard from your client for about a minute. So if **2 minutes** pass after your last outgoing message and nothing at all has arrived from the server, treat the connection as dead, close it and reconnect.
+- **Use the heartbeat as a fallback.** By default, the server sends a `HEARTBEAT` once it hasn't heard from your client for about a minute (this interval is server-side configuration, not part of the spec). So if **2 minutes** pass after your last outgoing message and nothing at all has arrived from the server, treat the connection as dead, close it and reconnect.
 
 Note the limitation of the heartbeat check: every message your client sends restarts the server's idle timer. A client that sends notifications frequently may never receive a `HEARTBEAT` at all — which is fine on a healthy connection, but means the fallback can't detect a dead one. That's why transport-level keepalive comes first.
 

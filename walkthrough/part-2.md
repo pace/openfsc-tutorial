@@ -47,6 +47,8 @@ S1 OK
 
 ### Pump Statuses
 
+Pump numbers are integers from **1 to 99**.
+
 Your POS system must map its internal pump states to one of these values:
 
 | Status | Meaning |
@@ -54,7 +56,7 @@ Your POS system must map its internal pump states to one of these values:
 | `free` | Pump is idle and available for use |
 | `in-use` | Customer is currently fueling |
 | `ready-to-pay` | Fueling complete, awaiting payment (Post-Pay) |
-| `locked` | Pump is indication the default status of the Pre-Auth workflow (can be reserved by a user to start a mobile fueling transaction) |
+| `locked` | Pump is locked, which is the default status in the Pre-Auth workflow (it can be reserved by a user to start a mobile fueling transaction) |
 | `out-of-order` | Pump is not operational |
 
 Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
@@ -66,6 +68,8 @@ Think carefully about how each state in your POS maps to these. The most critica
 ## Step 3: Implement PUMPSTATUS
 
 `PUMPSTATUS` is the single-pump equivalent of `PUMPS`. The server uses it to ask about one specific pump, often when a customer has selected it in the app.
+
+The pump argument is a pump number from 1 to 99.
 
 **Incoming request (basic):**
 ```
@@ -96,7 +100,7 @@ Your response works the same way — send the current status, then `OK`:
 S3 OK
 ```
 
-But now, for the next 30 seconds, if pump 3 changes state, you must proactively send a notification:
+But now, for (at least) the next 30 seconds, if pump 3 changes state, you must send a notification:
 ```
 * PUMP 3 in-use
 * PUMP 3 ready-to-pay
@@ -105,7 +109,7 @@ But now, for the next 30 seconds, if pump 3 changes state, you must proactively 
 These are unsolicited `*`-tagged notifications — no `OK` is needed for them.
 
 Implementation notes:
-- The valid TTL range is **30 to 300 seconds**. If the value is outside this range, reply with `ERR 416 UpdateTTL is too large or too low`.
+- The valid TTL range is **30 to 300 seconds**. If the value is outside this range, reply with `ERR 416 UpdateTTL is too high or too low (valid range: 30 to 300, both inclusive)`.
 - A new `PUMPSTATUS` request for the same pump resets the subscription timer.
 - **Only send updates when the status actually changes.** Don't poll and send the same status repeatedly.
 - You can have subscriptions active for multiple pumps simultaneously — track them per pump.
@@ -114,7 +118,7 @@ Implementation notes:
 
 ## Step 4: Implement Proactive PUMP Notifications
 
-Your client doesn't need to wait to be asked. Whenever a pump's status changes — whether there's an active subscription or not — you should send a proactive `PUMP` notification:
+Your client doesn't need to wait to be asked. Whenever a pump's status changes — whether there's an active `UpdateTTL` subscription or not — send a proactive `PUMP` notification:
 
 ```
 * PUMP 3 in-use
@@ -131,6 +135,8 @@ Before sending prices, you must announce your products and their categories to t
 > Although this is technically a protocol extension, treat it as mandatory — it will become part of the standard implementation requirements. If omitted, VAT rates cannot be conveyed via any other method.
 
 ### How it Works
+
+The server asks for `PRODUCTS` before it asks for `PRICES`, so that it knows which products the following `PRICE` notifications refer to.
 
 `PRODUCTS` follows the same request/notification/OK pattern as `PUMPS` and `PRICES`. The server sends a `PRODUCTS` request, and your client responds with one `PRODUCT` notification per product, followed by `OK`:
 
@@ -214,11 +220,15 @@ Each `PRICE` notification has the following fields:
 |---|---|---|
 | ProductID | `0100` | Your internal product identifier |
 | Unit | `LTR` | Always `LTR` (litres) for now |
-| Currency | `EUR` | ISO 4217 currency code |
-| PricePerUnit | `1.339` | End-user price **including VAT**, per litre |
+| Currency | `EUR` | One of the supported currencies listed below |
+| PricePerUnit | `1.339` | End-user price **including VAT**, per litre. At most 4 integer digits and 1 to 3 fractional digits; whole values need a fractional part (e.g. `589.0`, not `589`) |
 | Description | `Super Plus` | Human-readable product name (variadic — may contain spaces) |
 
-Note that the description is the last argument and is "variadic" — it can contain spaces, unlike all other arguments. Everything after the fourth space on a `PRICE` line is the description.
+The supported currencies are listed in the spec's [Supported Currencies](https://github.com/pace/openfsc-spec/blob/main/1.0/openfsc-spec.md#416-supported-currencies) (4.1.6): `EUR`, `CHF`, `GBP`, `DKK`, `SEK`, `NOK`, `PLN`, `CZK`, `HUF`, `RON`, `ISK`, `RSD`, `MKD`, `MDL`, `UAH`, `TRY`, `BAM`, `ALL` (others on request).
+
+**Use one currency per site:** send the same `Currency` in all `PRICE`, `TRANSACTION` and `UNLOCKPUMP` messages of a site. The spec does not mandate this yet, but it is a strong recommendation and may become a requirement in a later spec version.
+
+Note that the description is the last argument and is "variadic" — it can contain spaces, unlike all other arguments. Everything after the `PricePerUnit` argument is the description.
 
 ---
 
@@ -236,13 +246,15 @@ This ensures that customers browsing the app before arriving at the forecourt al
 
 ## Step 8: Update Your CAPABILITY Announcement
 
-Now that you're implementing pump, price, and product mapping methods, update the `CAPABILITY` notification you send during the handshake (Part 1, Step 3) to include the new methods:
+Now that you're implementing pump, price, and product mapping methods, update the `CAPABILITY` notification you send during the handshake (Part 1, Step 3) to include the new method:
 
 ```
-* CAPABILITY BEAT CHARSET PLAINAUTH PRICE PRODUCT PRODUCTS PUMP TRANSACTION LOCKEDPUMP QUIT
+* CAPABILITY CLEAR HEARTBEAT PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS
 ```
 
-Added here: `PRICE`, `PRODUCT`, `PRODUCTS`, `PUMP`. (`TRANSACTION` and `LOCKEDPUMP` are for Part 3, but it's shown here for completeness.)
+Added here: `PRODUCTS`. `PRICES`, `PUMPS` and `PUMPSTATUS` are part of the core set from Part 1, and you implement them in this part. (`CLEAR` and `TRANSACTIONS` are for Part 3, but they are shown here for completeness.)
+
+Remember that `CAPABILITY` lists the methods your client *handles*, i.e. the server's requests. `PRICE`, `PUMP` and `PRODUCT` are notifications your client *sends*, so they don't belong in your list.
 
 ---
 
@@ -250,7 +262,7 @@ Added here: `PRICE`, `PRODUCT`, `PRODUCTS`, `PUMP`. (`TRANSACTION` and `LOCKEDPU
 
 - **Sending `OK` before all notifications:** The server expects all `PUMP` or `PRICE` notifications to arrive before the `OK`. Sending `OK` early may cause the server to act on incomplete data.
 - **Forgetting the UpdateTTL timer:** If you acknowledge a `PUMPSTATUS` with a TTL but then never send proactive updates, the server will have a stale view of that pump during a customer's active session.
-- **Sending updates after TTL expires:** Once the TTL has elapsed, stop sending updates for that subscription unless a new `PUMPSTATUS` request renews it, or the status changes proactively.
+- **Treating the TTL as the end of status updates:** The TTL only guarantees updates during its window. Proactive status changes (Step 4) are always sent, also before a `PUMPSTATUS` request arrives and after its TTL has elapsed.
 - **Prices without VAT:** `PricePerUnit` in `PRICE` must always be the **end-user price including VAT**. Don't send the net price by mistake.
 
 ---
