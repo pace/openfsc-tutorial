@@ -65,18 +65,18 @@ The `TRANSACTION` notification carries a lot of fields. Here is a breakdown:
 
 | Position | Name | Example | Notes |
 |---|---|---|---|
-| arg0 | Pump | `3` | Pump number |
+| arg0 | Pump | `3` | Pump number (1 to 99) |
 | arg1 | SiteTransactionID | `c71b9838ad3dfc15` | Your POS-defined transaction ID (Post-Pay), or the FSCTransactionID provided by UNLOCKPUMP (Pre-Auth) |
 | arg2 | Status | `open` | Always `open` |
 | arg3 | ProductID | `0100` | Fuel product identifier |
-| arg4 | Currency | `EUR` | ISO 4217 |
+| arg4 | Currency | `EUR` | One of the supported currencies (see Part 2, Step 6) |
 | arg5 | PriceWithVAT | `86.83` | Total price including VAT |
 | arg6 | PriceWithoutVAT | `72.97` | Total price excluding VAT |
 | arg7 | VATRate | `19.0` | VAT percentage |
 | arg8 | VATAmount | `13.86` | VAT amount (PriceWithVAT − PriceWithoutVAT) |
 | arg9 | Unit | `LTR` | Always `LTR` |
 | arg10 | Volume | `64.85` | Litres dispensed |
-| arg11 | PricePerUnit | `1.339` | Price per litre including VAT |
+| arg11 | PricePerUnit | `1.339` | Price per litre including VAT. At most 4 integer digits and 1 to 3 fractional digits; whole values need a fractional part (e.g. `589.0`) |
 
 Double-check your maths before sending: `PriceWithoutVAT × (1 + VATRate/100)` should equal `PriceWithVAT`, `VATAmount` should equal `PriceWithVAT − PriceWithoutVAT`, and `Volume × PricePerUnit` should equal `PriceWithVAT`. Results must agree within one cent. Inconsistent values will cause issues on the payment side.
 
@@ -154,7 +154,7 @@ Arguments you need to handle:
 | Argument | Example | Notes |
 |---|---|---|
 | Pump | `3` | Pump to unlock |
-| Currency | `EUR` | Currency of the credit |
+| Currency | `EUR` | Currency of the credit, one of the supported currencies (see Part 2, Step 6) |
 | Credit | `100.00` | Maximum authorized amount |
 | FSCTransactionID | `e2f74ef5-...` | Server-assigned transaction ID — store this, you'll need it |
 | PaymentMethod | `pace` | Payment method in use |

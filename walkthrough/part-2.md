@@ -47,6 +47,8 @@ S1 OK
 
 ### Pump Statuses
 
+Pump numbers are integers from **1 to 99**.
+
 Your POS system must map its internal pump states to one of these values:
 
 | Status | Meaning |
@@ -66,6 +68,8 @@ Think carefully about how each state in your POS maps to these. The most critica
 ## Step 3: Implement PUMPSTATUS
 
 `PUMPSTATUS` is the single-pump equivalent of `PUMPS`. The server uses it to ask about one specific pump, often when a customer has selected it in the app.
+
+The pump argument is a pump number from 1 to 99.
 
 **Incoming request (basic):**
 ```
@@ -214,9 +218,11 @@ Each `PRICE` notification has the following fields:
 |---|---|---|
 | ProductID | `0100` | Your internal product identifier |
 | Unit | `LTR` | Always `LTR` (litres) for now |
-| Currency | `EUR` | ISO 4217 currency code |
-| PricePerUnit | `1.339` | End-user price **including VAT**, per litre |
+| Currency | `EUR` | One of the supported currencies listed below |
+| PricePerUnit | `1.339` | End-user price **including VAT**, per litre. At most 4 integer digits and 1 to 3 fractional digits; whole values need a fractional part (e.g. `589.0`, not `589`) |
 | Description | `Super Plus` | Human-readable product name (variadic — may contain spaces) |
+
+The supported currencies are listed in the spec's [Supported Currencies](https://github.com/pace/openfsc-spec/blob/main/1.0/openfsc-spec.md#416-supported-currencies) (4.1.6): `EUR`, `CHF`, `GBP`, `DKK`, `SEK`, `NOK`, `PLN`, `CZK`, `HUF`, `RON`, `ISK`, `RSD`, `MKD`, `MDL`, `UAH`, `TRY`, `BAM`, `ALL` (others on request).
 
 Note that the description is the last argument and is "variadic" — it can contain spaces, unlike all other arguments. Everything after the fourth space on a `PRICE` line is the description.
 
