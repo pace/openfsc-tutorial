@@ -100,7 +100,7 @@ Your response works the same way — send the current status, then `OK`:
 S3 OK
 ```
 
-But now, for the next 30 seconds, if pump 3 changes state, you must proactively send a notification:
+But now, for (at least) the next 30 seconds, if pump 3 changes state, you must send a notification:
 ```
 * PUMP 3 in-use
 * PUMP 3 ready-to-pay
@@ -118,7 +118,7 @@ Implementation notes:
 
 ## Step 4: Implement Proactive PUMP Notifications
 
-Your client doesn't need to wait to be asked. Whenever a pump's status changes — whether there's an active subscription or not — you should send a proactive `PUMP` notification:
+Your client doesn't need to wait to be asked. Whenever a pump's status changes — whether there's an active `UpdateTTL` subscription or not — send a proactive `PUMP` notification:
 
 ```
 * PUMP 3 in-use
@@ -258,7 +258,7 @@ Remember that `CAPABILITY` lists the methods your client *handles*, i.e. the ser
 
 - **Sending `OK` before all notifications:** The server expects all `PUMP` or `PRICE` notifications to arrive before the `OK`. Sending `OK` early may cause the server to act on incomplete data.
 - **Forgetting the UpdateTTL timer:** If you acknowledge a `PUMPSTATUS` with a TTL but then never send proactive updates, the server will have a stale view of that pump during a customer's active session.
-- **Sending updates after TTL expires:** Once the TTL has elapsed, stop sending updates for that subscription unless a new `PUMPSTATUS` request renews it, or the status changes proactively.
+- **Treating the TTL as the end of status updates:** The TTL only guarantees updates during its window. Proactive status changes (Step 4) are always sent, also before a `PUMPSTATUS` request arrives and after its TTL has elapsed.
 - **Prices without VAT:** `PricePerUnit` in `PRICE` must always be the **end-user price including VAT**. Don't send the net price by mistake.
 
 ---
