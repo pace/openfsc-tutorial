@@ -194,7 +194,7 @@ The server sends the info notifications after the transaction is reported, and b
 → Pump reaches ready-to-pay, client sends TRANSACTION
 
 Server: S4 TRANSACTIONS
-Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.978 19.0 13.65 LTR 54.40 1.339
+Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 Client: S4 OK
 
 Server: * TRANSACTIONINFO e2f74ef5-f427-4ae6-bdd3-70a96709992f PAN 92873498723498792384

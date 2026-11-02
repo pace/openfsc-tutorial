@@ -28,7 +28,7 @@ S4 TRANSACTIONS
 
 **Your response — one `TRANSACTION` notification per open transaction, then `OK`:**
 ```
-* TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.978 19.0 13.65 LTR 54.40 1.339
+* TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 S4 OK
 ```
 
@@ -71,14 +71,14 @@ The `TRANSACTION` notification carries a lot of fields. Here is a breakdown:
 | arg3 | ProductID | `0100` | Fuel product identifier |
 | arg4 | Currency | `EUR` | ISO 4217 |
 | arg5 | PriceWithVAT | `86.83` | Total price including VAT |
-| arg6 | PriceWithoutVAT | `72.978` | Total price excluding VAT |
+| arg6 | PriceWithoutVAT | `72.97` | Total price excluding VAT |
 | arg7 | VATRate | `19.0` | VAT percentage |
-| arg8 | VATAmount | `13.65` | VAT amount (PriceWithVAT − PriceWithoutVAT) |
+| arg8 | VATAmount | `13.86` | VAT amount (PriceWithVAT − PriceWithoutVAT) |
 | arg9 | Unit | `LTR` | Always `LTR` |
-| arg10 | Volume | `54.40` | Litres dispensed |
+| arg10 | Volume | `64.85` | Litres dispensed |
 | arg11 | PricePerUnit | `1.339` | Price per litre including VAT |
 
-Double-check your maths before sending: `PriceWithoutVAT × (1 + VATRate/100)` should equal `PriceWithVAT`, and `VATAmount` should equal `PriceWithVAT − PriceWithoutVAT`. Inconsistent values will cause issues on the payment side.
+Double-check your maths before sending: `PriceWithoutVAT × (1 + VATRate/100)` should equal `PriceWithVAT`, `VATAmount` should equal `PriceWithVAT − PriceWithoutVAT`, and `Volume × PricePerUnit` should equal `PriceWithVAT`. Results must agree within one cent. Inconsistent values will cause issues on the payment side.
 
 The **SiteTransactionID** differs between flows — this is covered in detail in the Post-Pay and Pre-Auth steps below.
 
@@ -109,7 +109,7 @@ Proactively send a `PUMP` status notification (Part 2), and a `TRANSACTION` noti
 
 ```
 * PUMP 3 ready-to-pay
-* TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.978 19.0 13.65 LTR 54.40 1.339
+* TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 ```
 
 **2. Keep reporting the transaction:**
@@ -186,7 +186,7 @@ Then update the pump status:
 In the Pre-Auth flow, you do **not** generate your own SiteTransactionID. Instead, use the `FSCTransactionID` provided by `UNLOCKPUMP` as the `SiteTransactionID` in your `TRANSACTION` notification:
 
 ```
-* TRANSACTION 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f open 0100 EUR 86.83 72.978 19.0 13.65 LTR 54.40 1.339
+* TRANSACTION 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 ```
 
 This is how the server correlates the pre-authorization with the actual fueling transaction.
@@ -344,10 +344,10 @@ Client: S2 OK
 → Customer finishes fueling on pump 3
 
 Client: * PUMP 3 ready-to-pay
-Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.978 19.0 13.65 LTR 54.40 1.339
+Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 
 Server: S3 TRANSACTIONS
-Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.978 19.0 13.65 LTR 54.40 1.339
+Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 Client: S3 OK
 
 → Customer pays via app
@@ -375,7 +375,7 @@ Client: * PUMP 3 in-use
 → Customer finishes fueling
 
 Client: * PUMP 3 locked
-Client: * TRANSACTION 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f open 0100 EUR 86.83 72.978 19.0 13.65 LTR 54.40 1.339
+Client: * TRANSACTION 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 
 → Server captures pre-authorized amount
 
