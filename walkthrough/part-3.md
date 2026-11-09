@@ -181,6 +181,26 @@ Then update the pump status:
 | `412` | Pump is in use: it was already unlocked or is currently used by someone else (e.g. a customer paying at the POS or with another payment method). The pump was not unlocked. |
 | `422` | Currency unknown |
 
+### Leaving Headroom for Pump Overrun
+
+The `Credit` in `UNLOCKPUMP` is the maximum amount the customer has authorized. Many pumps do not stop the instant the preset limit is reached: valve closing time and hose pressure typically lead to a small overrun. If you preset the pump to exactly the `Credit`, the customer can end up with more fuel than was authorized.
+
+We therefore recommend that you **preset the pump to a slightly lower limit than the `Credit`**. The `Credit` itself remains the authorized maximum; only the limit you program into the pump is reduced.
+
+Two common approaches:
+
+| Approach | Example (`Credit` 100.00) | Notes |
+|---|---|---|
+| Percentage | 2–3 % → pump limit 97.00–98.00 | Scales with the authorized amount. Recommended as the default. |
+| Absolute amount | 1–2 EUR → pump limit 98.00–99.00 | Simple, but proportionally large for small credits. |
+
+Guidelines:
+
+- Choose the margin per site or pump type, based on how far your pumps typically overrun. Make it configurable.
+- Make sure the reduced limit stays meaningful for small credits (for example, never reduce it to zero or below the pump's minimum preset). With an absolute margin, consider applying it only above a minimum credit.
+- Only reduce the limit you send to the pump. Do not change anything in your `OK` reply to `UNLOCKPUMP`.
+- Always report the amount actually dispensed in the `TRANSACTION` notification, even if the pump still overran and the total ended up above the margin you reserved.
+
 ### Using FSCTransactionID
 
 In the Pre-Auth flow, you do **not** generate your own SiteTransactionID. Instead, use the `FSCTransactionID` provided by `UNLOCKPUMP` as the `SiteTransactionID` in your `TRANSACTION` notification:
