@@ -9,7 +9,7 @@ This part covers optional extensions to the core protocol: Connection Multiplexi
 
 ### What Problem Does It Solve?
 
-By default, each site has its own TCP/WebSocket connection to the OpenFSC server. This also applies if one piece of software connects **several sites** (e.g. a central system or a cloud-based Site Connect Box serving several sites). One connection per site is fine and the simplest approach.
+By default, each site has its own TCP/WebSocket connection to the OpenFSC server. This also applies if one piece of software connects **several sites** (e.g. a central system serving several sites). One connection per site is fine and the simplest approach.
 
 Connection Multiplexing lets you run several independent site sessions over **one shared connection**. Each session behaves exactly like a separate connection, with its own login and its own messages, but all sessions share one TCP/WebSocket connection.
 
