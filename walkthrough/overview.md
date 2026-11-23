@@ -41,7 +41,7 @@ flowchart LR
         api --- server
     end
     subgraph site["Site"]
-        client["OpenFSC client<br/>(POS, site controller<br/>or Site Connect Box)"]
+        client["OpenFSC client<br/>(POS, site controller)"]
         fcc["Forecourt controller"]
         pumps["Pumps"]
         client --- fcc --- pumps
