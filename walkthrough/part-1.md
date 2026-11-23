@@ -1,7 +1,7 @@
 # OpenFSC Client Implementation Walkthrough
 ## Part 1: Connection Handling
 
-This walkthrough guides you through implementing an OpenFSC client that connects your POS system to an OpenFSC server. We'll start from the very first byte sent over the wire all the way to a stable, authenticated, and heartbeat-aware connection.
+This part takes you from opening the connection to the OpenFSC server to a stable, authenticated connection that answers heartbeats and reconnects on its own. If you are new to OpenFSC, read the [Overview](overview.md) first.
 
 ---
 
@@ -9,28 +9,28 @@ This walkthrough guides you through implementing an OpenFSC client that connects
 
 Before writing any code, make sure you have the following on hand:
 
-- **SiteAccessKey** (a UUID) and **Secret** — provided to you during gas station on-boarding. These are your credentials for authenticating with the OpenFSC server.
-- **Server address and port** — the OpenFSC server hostname and either port 443 (WSS/TLS) or the VPN-secured TCP port.
-- **Connection type decision** — are you connecting over secure WebSockets (WSS) or raw TCP over a VPN? This affects your transport layer but *not* the protocol logic above it. This walkthrough focuses on the protocol layer, which is identical for both.
+- **SiteAccessKey** (a UUID) and **Secret**: the site's credentials for logging in to the OpenFSC server. You receive them when the site is onboarded.
+- **Server address and port**: the OpenFSC server hostname, and either port 443 (WSS/TLS) or the TCP port reachable through the VPN.
+- **Connection type**: secure WebSockets (WSS) or plain TCP through a VPN. This choice only affects how you open the connection. The protocol on top is the same for both, and that is what this walkthrough covers.
 
 ---
 
 ## Step 1: Open a TCP/WebSocket Connection
 
-Establish a persistent, reliable, ordered connection to the OpenFSC server. The protocol requires a byte stream where messages are not lost or reordered.
+Open a long-lived connection to the OpenFSC server. The protocol needs a connection that delivers all bytes in order, which both WSS and TCP do.
 
 - If using **WSS**: connect to `wss://<server>:443`. Handle TLS negotiation via your WebSocket library.
 - If using **TCP over VPN**: open a raw TCP socket to the server's address and port.
 
-Once the connection is open, you are in the **Not Authenticated State**. No authenticated methods may be used yet.
+Once the connection is open, you are in the **Not Authenticated State**. Until you have logged in (Step 5), you may only use the handshake methods.
 
-> **Important:** If the connection drops for any reason, your client must reconnect and restart the handshake from scratch. Step 10 covers how to do this robustly.
+> **Important:** If the connection drops for any reason, your client must reconnect and run the whole handshake again. Step 10 explains how.
 
 ---
 
 ## Step 2: Understand the Message Format
 
-Every single message in the protocol — sent or received — follows this structure:
+Every message in the protocol, sent or received, has this structure:
 
 ```
 <tag> <method> <arg0> <arg1> ... <argN>
@@ -41,9 +41,9 @@ Key rules:
 - Every message is terminated by **`\r\n`** (CRLF). Your parser must read until it finds `\r\n` to know a message is complete. In all examples throughout this walkthrough, the line break represents this terminator.
 - The **tag** is either `*` (notification, no reply expected) or an alphanumeric identifier like `S1`, `C0` (request/response, a reply with the same tag is expected).
 - The **method** is an uppercase alphanumeric word like `CAPABILITY`, `PUMPS`, etc.
-- The default encoding is **ASCII**. You can negotiate a different encoding (e.g. UTF-8) during the handshake using `CHARSET` — but for a first implementation, staying with ASCII is fine.
+- The default encoding is **ASCII**. You can switch to another encoding (e.g. UTF-8) during the handshake using `CHARSET`, but for a first implementation ASCII is fine.
 
-Get your message parser right before anything else. A good approach is a line reader that buffers incoming bytes and emits complete messages when it encounters `\r\n`.
+Get your message parser right before anything else. A simple approach is a line reader that collects incoming bytes and hands over a complete message each time it finds `\r\n`.
 
 ---
 
@@ -59,8 +59,8 @@ Immediately after the connection is open, **both sides send a `CAPABILITY` notif
 
 This tells the server which methods *your client* can handle, i.e. the requests and notifications the server may send to you. At minimum you must announce the methods you actually implement. For the connection phase, the relevant ones are:
 
-- `HEARTBEAT` — your client handles heartbeat requests (and answers them with `BEAT`, see Step 7)
-- `QUIT` — your client understands disconnect notifications
+- `HEARTBEAT`: your client handles heartbeat requests (and answers them with `BEAT`, see Step 7)
+- `QUIT`: your client understands disconnect notifications
 
 The remaining methods in the list (`CLEAR`, `PRICES`, `PUMPS`, `PUMPSTATUS`, `TRANSACTIONS`) are the server requests you will implement in Parts 2 and 3. As you implement more functionality, you will add the matching methods to this list: `PRODUCTS` in Part 2, `LOCKPUMP` and `UNLOCKPUMP` (Pre-Auth only) in Part 3 and `TRANSACTIONINFO` in Part 4.
 
@@ -92,7 +92,7 @@ The server will reply:
 C0 OK
 ```
 
-Note that the tag `C0` here is chosen by your client — it just needs to be unique for the duration of this request. A simple incrementing counter (C0, C1, C2, …) works well.
+The tag `C0` is chosen by your client. It only needs to be unique while this request is open. A counter (C0, C1, C2, …) works well.
 
 > **Caution:** The `OK` response itself is still in the *old* encoding. All messages *after* the `OK` use the new encoding.
 
@@ -131,19 +131,19 @@ If authentication fails:
 C1 ERR 401 SiteAccessKey and/or secret are not valid
 ```
 
-In this case, check your credentials. Retrying immediately with wrong credentials is pointless — surface the error and wait for operator intervention.
+In this case, check your credentials. Retrying with wrong credentials won't help: report the error and wait until an operator fixes the credentials.
 
 ---
 
 ## Step 6: Implement a Tag Manager
 
-Before going further, you need a robust way to manage request/response pairs. The protocol is asynchronous — the server can send you requests at any time, interleaved with your own requests.
+Before going further, you need a reliable way to match requests and responses. Both sides can send requests at any time, so the server's requests and responses to your own requests can arrive mixed together.
 
 A simple tag manager should:
 
 1. **Generate unique tags** for outgoing requests (e.g. `C0`, `C1`, `C2`, …).
-2. **Track pending outgoing requests** — store a mapping of `tag → callback/handler` so you can match an incoming `OK` or `ERR` to the request you sent.
-3. **Route incoming server requests** — when the server sends a tagged request (e.g. `S4 TRANSACTIONS`), your client must reply using that same tag (`S4 OK` or `S4 ERR ...`).
+2. **Track your open requests**: store a mapping of `tag → callback/handler` so you can match an incoming `OK` or `ERR` to the request you sent.
+3. **Answer server requests with their tag**: when the server sends a request (e.g. `S4 TRANSACTIONS`), your client must reply with the same tag (`S4 OK` or `S4 ERR ...`).
 
 Keep client-originated tags and server-originated tags separate to avoid collisions (e.g. prefix yours with `C`, the server uses `S`).
 
@@ -169,13 +169,13 @@ S6 BEAT 2019-11-13T08:00:05+01:00
 S6 OK
 ```
 
-The `BEAT` message is purely informational — it lets the server calculate the clock drift between your system and its own. The `OK` is what actually concludes the `HEARTBEAT` request.
+The `BEAT` message is only informational: it lets the server see how far your clock differs from its own. The `OK` is what completes the `HEARTBEAT` request.
 
 Your implementation checklist for heartbeats:
 - [ ] Parse incoming `HEARTBEAT` messages and extract the tag.
 - [ ] Immediately reply with `BEAT` carrying your current timestamp (RFC-3339 with timezone offset).
 - [ ] Follow up with `OK` using the same tag.
-- [ ] Do this within 20 seconds — if your system is under load, make heartbeat handling a high priority.
+- [ ] Do this within 20 seconds. If your system is under load, give heartbeat handling a high priority.
 
 ---
 
@@ -197,7 +197,7 @@ Your client may also send `QUIT` before intentionally disconnecting:
 * QUIT bye bye
 ```
 
-This is optional — you may also just close the socket — but it is good practice.
+This is optional (you may also just close the socket), but it is good practice.
 
 ---
 
@@ -206,7 +206,7 @@ This is optional — you may also just close the socket — but it is good pract
 During development (and in production), you may receive methods you don't yet handle, or send requests that result in errors. Build these habits in early:
 
 - **Unknown method received:** Reply with `ERR 405 Method unknown` using the incoming tag, then continue operating normally. Do not crash.
-- **Bad request from your side:** If you receive `ERR 400 Bad request`, inspect the message you sent — it likely has a malformed tag, argument, or method name.
+- **Bad request from your side:** If you receive `ERR 400 Bad request`, check the message you sent. Most likely the tag, an argument or the method name is malformed.
 - **Wrong state error (`403`):** You sent an authenticated-state method before completing the handshake (or vice versa). Check your state machine.
 - **Unexpected disconnect:** Always reconnect and restart the handshake (see Step 10).
 
@@ -214,7 +214,7 @@ During development (and in production), you may receive methods you don't yet ha
 
 ## Step 10: Reconnect Robustly
 
-A connection to the OpenFSC server is expected to stay up indefinitely, so your client will spend its whole life either connected or trying to reconnect. Getting this loop right matters as much as any individual method.
+The connection to the OpenFSC server should stay up all the time, so your client is always either connected or trying to reconnect. Getting this loop right matters as much as any single method.
 
 ### When to Reconnect
 
@@ -224,47 +224,47 @@ Reconnect whenever one of these happens:
 - The socket is closed or reports an error.
 - The connection looks dead, even though the socket still appears open (see below).
 
-Reconnecting always means opening a **new** socket and running the full handshake again — `CAPABILITY`, optionally `CHARSET`, then `PLAINAUTH` (Steps 1–5). Nothing carries over from the previous connection.
+Reconnecting always means opening a **new** socket and running the full handshake again: `CAPABILITY`, optionally `CHARSET`, then `PLAINAUTH` (Steps 1–5). Nothing carries over from the previous connection.
 
 ### Detect Dead Connections
 
-A TCP connection can go *half-open*: a VPN tunnel or NAT gateway silently drops it, but neither side's socket reports an error. Your client keeps waiting for messages that will never arrive. Don't rely on the socket alone to tell you the connection is gone.
+A TCP connection can break without either side noticing: a VPN tunnel or NAT gateway silently drops it, but neither socket reports an error (a so-called *half-open* connection). Your client then waits for messages that will never arrive. So don't rely on the socket alone to tell you the connection is gone.
 
 - **Use transport-level keepalive.** Enable TCP keepalive on raw TCP sockets, or send WebSocket ping frames when using WSS, and close the connection if no response arrives within 30–60 seconds. This works regardless of how much protocol traffic is flowing and should be your primary mechanism.
 - **Use the heartbeat as a fallback.** By default, the server sends a `HEARTBEAT` once it hasn't heard from your client for about a minute (this interval is server-side configuration, not part of the spec). So if **2 minutes** pass after your last outgoing message and nothing at all has arrived from the server, treat the connection as dead, close it and reconnect.
 
-Note the limitation of the heartbeat check: every message your client sends restarts the server's idle timer. A client that sends notifications frequently may never receive a `HEARTBEAT` at all — which is fine on a healthy connection, but means the fallback can't detect a dead one. That's why transport-level keepalive comes first.
+The heartbeat check has a limit: every message your client sends restarts the server's idle timer. A client that sends notifications often may never receive a `HEARTBEAT` at all. That is fine on a healthy connection, but it means the fallback can't detect a dead one. That's why transport-level keepalive comes first.
 
 ### Back Off Between Attempts
 
-Reconnecting in a tight loop while the server is unreachable wastes resources on both sides and can slow down recovery for everyone. Use exponential backoff with jitter:
+Reconnecting over and over without a pause while the server is unreachable wastes resources on both sides and can slow down recovery for everyone. Instead, wait a bit longer after each failed attempt (exponential backoff) and add some randomness (jitter):
 
 1. Make the first reconnect attempt right away.
 2. If it fails, wait 1 second before the next attempt, then 2, 4, 8, … seconds, capped at **60 seconds**.
-3. Add random jitter of ±20% to each delay so that many sites don't reconnect in lockstep after a server restart.
-4. Reset the delay only after `PLAINAUTH` has been answered with `OK` — not merely when the socket opens. Otherwise a server that accepts connections and then immediately closes them would keep your client in a tight loop.
+3. Add a random ±20% to each delay so that many sites don't all reconnect at the same moment after a server restart.
+4. Reset the delay only after `PLAINAUTH` has been answered with `OK`, not as soon as the socket opens. Otherwise a server that accepts connections and closes them right away would make your client reconnect without any pause.
 
-The one exception is `ERR 401` on `PLAINAUTH` (Step 5): wrong credentials won't fix themselves, so stop the retry loop, surface the error and wait for operator intervention.
+The one exception is `ERR 401` on `PLAINAUTH` (Step 5): wrong credentials won't fix themselves, so stop retrying, report the error and wait for an operator.
 
 ### Clean Up Connection State
 
 When a connection ends, discard everything that belonged to it:
 
-- **Pending outgoing requests:** fail every entry in your tag manager (Step 6). A response for those tags will never arrive. Don't resend them blindly on the new connection — decide per request whether it is still relevant.
+- **Your open requests:** mark every entry in your tag manager (Step 6) as failed. No response for those tags will arrive. Don't simply resend them on the new connection: decide per request whether it is still needed.
 - **Incoming requests you haven't answered yet:** drop them. The server tags (`S…`) belong to the old connection and must not be answered on the new one.
 - **The line-reader buffer:** discard any partially received message.
-- **Notifications that couldn't be sent:** don't queue and replay them. Notifications are fire-and-forget, and the server will request current state after you reconnect.
+- **Notifications that couldn't be sent:** don't queue and resend them. Notifications expect no reply, and the server asks for the current state after you reconnect.
 
 ### What to Expect After Reconnecting
 
-Once you're authenticated again, the server rebuilds its view of your site by sending requests — your client just needs to answer them as described in Parts 2 and 3:
+Once you're authenticated again, the server asks for the current state of your site. Your client only needs to answer these requests as described in Parts 2 and 3:
 
-1. `PRODUCTS` — if your client announced it (Part 2, Step 5).
+1. `PRODUCTS`, if your client announced it (Part 2, Step 5).
 2. `PRICES` (Part 2, Step 6).
 3. A retried `CLEAR` for any transaction whose clearing was interrupted by the disconnect (Part 3, "Handling CLEAR After Reconnection").
 4. `TRANSACTIONS` (Part 3, Step 2).
 
-Pump statuses aren't requested on connect — the server asks for them via `PUMPS` or `PUMPSTATUS` when a user needs them.
+Pump statuses aren't requested on connect. The server asks for them via `PUMPS` or `PUMPSTATUS` when a customer needs them.
 
 Your implementation checklist for reconnection:
 - [ ] Reconnect on `QUIT`, on socket close/error, and when the connection looks dead.
@@ -303,4 +303,6 @@ Here is the complete lifecycle of a connection:
 
 ## What's Next
 
-With a stable, authenticated, heartbeat-aware connection in place, the next part of this walkthrough will cover **reporting pump statuses and prices** — the first things the server will ask for immediately after authentication.
+With a stable, authenticated connection in place, Part 2 covers **products, prices and pump statuses**. Products and prices are the first things the server asks for after you log in.
+
+**Previous:** [Overview](overview.md) · **Next:** [Part 2: Pump Status & Prices](part-2.md)

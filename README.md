@@ -4,9 +4,9 @@
 
 # OpenFSC Client Implementation Walkthrough
 
-This walkthrough guides developers through implementing an OpenFSC client that connects a POS system to an OpenFSC server, enabling the Connected Fueling / pay-at-the-pump experience for customers.
+This walkthrough shows developers how to build an OpenFSC client: the software that connects a site's POS system to PACE's OpenFSC server, so that customers can pay for fuel in an app while staying at the pump (Connected Fueling).
 
-It is written for engineers who are new to the OpenFSC protocol. Each part builds on the previous one, so it is recommended to read them in order.
+It is written for engineers who know POS and forecourt systems but are new to OpenFSC. Each part builds on the previous one, so read them in order.
 
 For the full protocol specification, see the [OpenFSC Protocol Specification (Version 1.0)](https://github.com/pace/openfsc-spec/blob/main/1.0/openfsc-spec.md).
 
@@ -14,16 +14,19 @@ For the full protocol specification, see the [OpenFSC Protocol Specification (Ve
 
 ## Parts
 
+### [Overview: How Connected Fueling Works](walkthrough/overview.md)
+Explains the parties involved, what the customer does in Post-Pay and Pre-Auth, how OpenFSC messages are structured, and the most important terms. Start here if OpenFSC is new to you.
+
 ### [Part 1: Connection Handling](walkthrough/part-1.md)
-Covers everything needed to establish a stable, authenticated connection to the OpenFSC server — including the handshake, authentication, heartbeat handling, and reconnection behaviour. Start here.
+Covers everything you need for a stable, authenticated connection to the OpenFSC server: the handshake, authentication, heartbeats and reconnecting.
 
 ### [Part 2: Pump Status & Prices](walkthrough/part-2.md)
-Covers reporting pump statuses and fuel prices, handling status subscriptions via `UpdateTTL`, and announcing products with the `PRODUCTS` / `PRODUCT` extension.
+Covers announcing products with `PRODUCTS` / `PRODUCT`, reporting fuel prices and pump statuses, and sending status updates for a limited time via `UpdateTTL`.
 
 ### [Part 3: Transactions](walkthrough/part-3.md)
-Covers the two payment flows — Post-Pay and Pre-Auth — including how to report transactions, handle pump locking and unlocking, and process payment clearance via `CLEAR`.
+Covers the two payment flows, Post-Pay and Pre-Auth: how to report transactions, lock and unlock pumps, and close paid transactions when the server sends `CLEAR`.
 
 ### [Part 4: Advanced Topics](walkthrough/part-4.md)
-Covers optional protocol extensions: Connection Multiplexing (for connecting multiple sites over a single channel) and Transaction Information (for card payment data delivery). High Availability documentation is pending.
+Covers optional protocol extensions: Connection Multiplexing (connecting several sites over one connection) and Transaction Information (receiving card data for a payment). High Availability will be documented later.
 
 ---
