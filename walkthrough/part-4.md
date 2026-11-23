@@ -1,7 +1,7 @@
 # OpenFSC Client Implementation Walkthrough
 ## Part 4: Advanced Topics
 
-This part covers three extensions that go beyond the core protocol. Connection Multiplexing and Transaction Information are covered in full. High Availability will be added once a replacement solution is available.
+This part covers optional extensions to the core protocol: Connection Multiplexing and Transaction Information. High Availability will be documented once its replacement is available.
 
 ---
 
@@ -9,15 +9,15 @@ This part covers three extensions that go beyond the core protocol. Connection M
 
 ### What Problem Does It Solve?
 
-By default, each site requires its own dedicated TCP/WebSocket connection to the OpenFSC server. If you are building a gateway or concentrator that connects **multiple sites** through a single piece of software (e.g. a cloud-based Site Connect Box managing several stations), opening one connection per site is perfectly fine and the simplest approach.
+By default, each site has its own TCP/WebSocket connection to the OpenFSC server. This also applies if one piece of software connects **several sites** (e.g. a central system or a cloud-based Site Connect Box serving several sites). One connection per site is fine and the simplest approach.
 
-Connection Multiplexing allows you to run multiple independent site sessions over a **single underlying connection**. Each session behaves exactly like a standalone connection — it has its own handshake, its own authentication, and its own message flow — but all sessions share one TCP/WebSocket channel.
+Connection Multiplexing lets you run several independent site sessions over **one shared connection**. Each session behaves exactly like a separate connection, with its own login and its own messages, but all sessions share one TCP/WebSocket connection.
 
 > If you are connecting a single site, skip this extension entirely. Use a plain connection as described in Parts 1–3.
 
 ### How Sessions Work
 
-A session is identified by a **SessionID** — a short alphanumeric string you choose (e.g. `s1`, `site42`). Once a session is created, every message belonging to that session is prefixed with `<sessionID>.` in the tag field:
+A session is identified by a **SessionID**, a short alphanumeric string you choose (e.g. `s1`, `site42`). Once a session is created, every message belonging to that session is prefixed with `<sessionID>.` in the tag field:
 
 ```
 s1.* PUMP 1 free
@@ -25,13 +25,13 @@ s1.C1 PLAINAUTH 9eb56d5e-6563-430a-9d39-5ddf567e73d5 secret
 s1.C1 OK
 ```
 
-Messages without a session prefix belong to the initial (non-multiplexed) connection. However, once you start using `NEWSESSION`, you must not authenticate the initial connection — it becomes a control channel only.
+Messages without a session prefix belong to the initial (non-multiplexed) connection. However, once you start using `NEWSESSION`, you must not log in on the initial connection. It is then only used to manage the sessions (control channel).
 
 ### Step-by-Step: Setting Up a Multiplexed Connection
 
 **1. Open the connection and exchange CAPABILITY as normal (Part 1, Steps 1–3).**
 
-Do not authenticate the initial connection. Check that the server announces `NEWSESSION` and `SESSIONS` in its capabilities — if it does not, multiplexing is not supported and you must fall back to separate connections per site.
+Do not authenticate the initial connection. Check that the server announces `NEWSESSION` and `SESSIONS` in its capabilities. If it doesn't, multiplexing is not supported and you must use one connection per site.
 
 **2. Create a session with NEWSESSION:**
 
@@ -51,8 +51,8 @@ C1 NEWSESSION s1 1
 ```
 
 Errors:
-- `409` — SessionID already taken
-- `410` — You already called `PLAINAUTH` on the initial connection; multiplexing is no longer allowed
+- `409`: SessionID already taken
+- `410`: You already called `PLAINAUTH` on the initial connection, so multiplexing is no longer allowed
 
 **3. Authenticate the session:**
 
@@ -113,7 +113,7 @@ C6 OK
 
 Each `SESSION` notification carries the SessionID, its priority, and optionally the SiteAccessKey it is authenticated with.
 
-Note: `SESSIONS` can only be called on the initial (unprefixed) connection — calling it with a session prefix returns `ERR 410`.
+Note: `SESSIONS` only works on the initial (unprefixed) connection. Calling it with a session prefix returns `ERR 410`.
 
 ### Priority and Failover
 
@@ -124,17 +124,17 @@ C1 NEWSESSION primary 1
 C2 NEWSESSION backup 2
 ```
 
-The server communicates exclusively through the session with the highest priority (`1`). If that session disconnects, the server automatically switches to the next available session (`2`). This is the basis for the High Availability pattern covered in the next extension.
+The server communicates exclusively through the session with the highest priority (`1`). If that session disconnects, the server automatically switches to the next available session (`2`). This is also the basis for High Availability, which will be documented later.
 
 ### Reconnecting a Multiplexed Connection
 
 If the shared TCP/WebSocket connection drops, **every session on it is gone**. Reconnect as described in Part 1, Step 10, with one connection-level retry loop and backoff, then rebuild the sessions:
 
-1. Exchange `CAPABILITY` on the new connection. Don't authenticate it — it stays the control channel.
+1. Exchange `CAPABILITY` on the new connection. Don't log in on it: it stays the control channel.
 2. Recreate each session with `NEWSESSION` (reusing the same SessionIDs and priorities is fine) and authenticate it with `PLAINAUTH`.
 3. Answer the `PRODUCTS`, `PRICES`, `CLEAR` and `TRANSACTIONS` requests the server then sends on each session, exactly as for a standalone connection.
 
-If a single session's `PLAINAUTH` fails with `ERR 401`, leave that site disconnected and alert an operator — don't tear down the other sessions or the shared connection because of it.
+If a single session's `PLAINAUTH` fails with `ERR 401`, leave that site disconnected and alert an operator. Don't close the other sessions or the shared connection because of it.
 
 For dead-connection detection, rely on transport-level keepalive (TCP keepalive or WebSocket pings) on the shared connection. By default, sessions are only sent a `HEARTBEAT` after about 10 minutes of silence (server-side configuration, not part of the spec), which is far too slow to be a useful liveness signal.
 
@@ -160,7 +160,7 @@ Your client keeps announcing the methods it handles (Part 3, Step 7) and only ch
 
 ### What Problem Does It Solve?
 
-When a customer pays with a card (as opposed to a mobile wallet), your POS may need certain payment card details — such as the PAN (Primary Account Number), an approval code, or the vehicle's mileage reading — in order to complete the fueling authorization or populate a receipt. The `TRANSACTIONINFO` extension allows the server to push this sensitive data to your client just before issuing a `CLEAR` or `UNLOCKPUMP`.
+When a customer pays with a card (for example a fleet card) instead of a mobile wallet, your POS may need some card details to complete the authorization or print a receipt: the PAN (Primary Account Number), an approval code or the vehicle's mileage. With the `TRANSACTIONINFO` extension, the server sends this sensitive data to your client right before it sends `CLEAR` or `UNLOCKPUMP`.
 
 > **This data is highly sensitive.** Eligibility to receive `TRANSACTIONINFO` must be agreed on commercially with PACE and is controlled in the OpenFSC backend. Even if your client announces the capability, the server may choose not to send it.
 
@@ -173,7 +173,7 @@ If both sides announce `TRANSACTIONINFO` in their `CAPABILITY`, the server will 
 | Argument | Example | Notes |
 |---|---|---|
 | FSCTransactionID | `e2f74ef5-...` | The server-side transaction ID this info belongs to |
-| Key | `PAN` | One of the defined keys — see table below |
+| Key | `PAN` | One of the defined keys (see table below) |
 | Value | `92873498723498792384` | The value for the given key |
 
 Defined key-value pairs:
@@ -182,9 +182,9 @@ Defined key-value pairs:
 |---|---|---|
 | `PAN` | string | Primary Account Number of the card used (19–21 digits) |
 | `ApprovalCode` | number | 6-digit approval code (IFSF H2H) |
-| `Mileage` | number | Odometer reading of the vehicle in kilometres, up to 7 digits. Defaults to `0` |
+| `Mileage` | number | Odometer reading of the vehicle in kilometers, up to 7 digits. Defaults to `0` |
 
-Each key arrives as a separate notification. There is no single combined message — expect one `TRANSACTIONINFO` per key.
+Each key arrives as a separate notification. There is no combined message: expect one `TRANSACTIONINFO` per key.
 
 ### Post-Pay Flow with TRANSACTIONINFO
 
@@ -222,9 +222,9 @@ Client: * PUMP 1 free
 
 ### Implementation Notes
 
-- **`TRANSACTIONINFO` is a notification** (tag `*`) — you do not reply to it. Simply receive and store the key-value pairs, keyed by `FSCTransactionID`, so they are available when the subsequent `CLEAR` or `UNLOCKPUMP` arrives.
-- **Multiple keys arrive separately** — build up a map of key-value pairs per transaction as they come in, rather than waiting for a single combined message.
-- **The server may send none** — your client must handle the case where no `TRANSACTIONINFO` is sent before a `CLEAR` or `UNLOCKPUMP`, even if the capability was announced. Do not block or wait for it.
+- **`TRANSACTIONINFO` is a notification** (tag `*`), so you don't reply to it. Simply receive and store the key-value pairs, keyed by `FSCTransactionID`, so they are available when the subsequent `CLEAR` or `UNLOCKPUMP` arrives.
+- **Each key arrives separately:** collect the key-value pairs per transaction as they come in.
+- **The server may send none:** your client must work without `TRANSACTIONINFO` before a `CLEAR` or `UNLOCKPUMP`, even if the capability was announced. Don't wait for it.
 
 ### CAPABILITY Update
 
@@ -233,3 +233,7 @@ Add `TRANSACTIONINFO` to your capability announcement, since your client handles
 ```
 * CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONINFO TRANSACTIONS UNLOCKPUMP
 ```
+
+---
+
+**Previous:** [Part 3: Transactions](part-3.md) · **Back to:** [Overview](overview.md)

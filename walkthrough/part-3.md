@@ -1,7 +1,7 @@
 # OpenFSC Client Implementation Walkthrough
 ## Part 3: Transactions
 
-This is the heart of the OpenFSC protocol — where fueling events become payments. Part 3 covers how transactions are reported, how the server clears them after payment, and the two distinct flows your client needs to support: **Post-Pay** and **Pre-Auth**.
+This part is about turning fuelings into payments. It covers how your client reports transactions, how the server tells it that a transaction has been paid, and the two flows your client can support: **Post-Pay** and **Pre-Auth**.
 
 ---
 
@@ -9,24 +9,24 @@ This is the heart of the OpenFSC protocol — where fueling events become paymen
 
 A transaction is always `open` from the moment fuel is dispensed until either:
 - The server sends a `CLEAR` (payment succeeded via OpenFSC), or
-- The customer pays in the shop — in which case the transaction simply disappears from your POS and is no longer reported.
+- The customer pays in the shop. In this case the transaction disappears from your POS and is no longer reported.
 
-> The spec also defines a `deferred` transaction status, intended for cases where an operator manually releases a pump with an unsettled transaction. This has not been adopted in practice — do not implement it.
+> The spec also defines a `deferred` transaction status, meant for cases where an operator manually releases a pump with an unpaid transaction. It is not used in practice, so do not implement it.
 
-> **Important:** Only send a `TRANSACTION` notification if fuel was actually dispensed (non-zero volume). Zero-quantity events are not transactions — they are cancellations, handled differently in the Pre-Auth flow.
+> **Important:** Only send a `TRANSACTION` notification if fuel was actually dispensed (non-zero volume). A fueling with zero volume is not a transaction but a cancellation, which the Pre-Auth flow handles differently.
 
 ---
 
 ## Step 2: Implement TRANSACTIONS
 
-`TRANSACTIONS` works exactly like `PUMPS` and `PRICES` from Part 2 — a bulk request answered with individual notifications. The server uses it to fetch all currently open transactions, typically right after authentication to catch up on anything unsettled.
+`TRANSACTIONS` works exactly like `PUMPS` and `PRICES` from Part 2: one request, answered with one notification per item. The server uses it to fetch all open transactions, for example right after your client logs in, to catch up on anything still unpaid.
 
 **Incoming request (all pumps):**
 ```
 S4 TRANSACTIONS
 ```
 
-**Your response — one `TRANSACTION` notification per open transaction, then `OK`:**
+**Your response: one `TRANSACTION` notification per open transaction, then `OK`:**
 ```
 * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 S4 OK
@@ -49,13 +49,13 @@ Respond with only the transactions for that pump (or just `OK` if none), then `O
 
 ### The UpdateTTL Subscription
 
-Just like `PUMPSTATUS`, `TRANSACTIONS` supports an `UpdateTTL` argument — but only when a specific pump is also specified:
+Just like `PUMPSTATUS`, `TRANSACTIONS` supports an `UpdateTTL` argument, but only together with a pump number:
 
 ```
 S4 TRANSACTIONS 3 60
 ```
 
-After responding with current transactions and `OK`, your client must proactively push `TRANSACTION` notifications for that pump whenever a transaction changes during the TTL window. The same TTL range applies: **30 to 300 seconds**. Respond with `ERR 416` if out of range.
+After answering with the current transactions and `OK`, your client must send a `TRANSACTION` notification for that pump whenever a transaction changes during the TTL. The same TTL range applies: **30 to 300 seconds**. Respond with `ERR 416` if out of range.
 
 ---
 
@@ -75,18 +75,18 @@ The `TRANSACTION` notification carries a lot of fields. Here is a breakdown:
 | arg7 | VATRate | `19.0` | VAT percentage |
 | arg8 | VATAmount | `13.86` | VAT amount (PriceWithVAT − PriceWithoutVAT) |
 | arg9 | Unit | `LTR` | Always `LTR` |
-| arg10 | Volume | `64.85` | Litres dispensed |
-| arg11 | PricePerUnit | `1.339` | Price per litre including VAT. At most 4 integer digits and 1 to 3 fractional digits; whole values need a fractional part (e.g. `589.0`) |
+| arg10 | Volume | `64.85` | Liters dispensed |
+| arg11 | PricePerUnit | `1.339` | Price per liter including VAT. At most 4 integer digits and 1 to 3 fractional digits; whole values need a fractional part (e.g. `589.0`) |
 
-Double-check your maths before sending: `PriceWithoutVAT × (1 + VATRate/100)` should equal `PriceWithVAT`, `VATAmount` should equal `PriceWithVAT − PriceWithoutVAT`, and `Volume × PricePerUnit` should equal `PriceWithVAT`. Results must agree within one cent. Inconsistent values will cause issues on the payment side.
+Double-check your math before sending: `PriceWithoutVAT × (1 + VATRate/100)` should equal `PriceWithVAT`, `VATAmount` should equal `PriceWithVAT − PriceWithoutVAT`, and `Volume × PricePerUnit` should equal `PriceWithVAT`. Results must agree within one cent. Inconsistent values cause problems with the payment.
 
-The **SiteTransactionID** differs between flows — this is covered in detail in the Post-Pay and Pre-Auth steps below.
+The **SiteTransactionID** differs between the flows. The Post-Pay and Pre-Auth steps below explain how.
 
 ---
 
 ## Step 4: The Post-Pay Flow
 
-Post-Pay is the most common flow in Germany. The customer fuels first, and payment is collected afterward.
+Post-Pay is the most common flow in Germany. The customer fuels first and pays afterward.
 
 ### Flow Overview
 
@@ -124,12 +124,12 @@ See Step 6 below.
 
 ## Step 5: The Pre-Auth Flow
 
-Pre-Auth is used outside Germany and for unmanned stations. The payment is pre-authorized before fueling begins, and the pump is unlocked by the server.
+Pre-Auth is common outside Germany and at unmanned sites. The customer authorizes a maximum amount before fueling, and the server then tells your client to unlock the pump.
 
 ### Flow Overview
 
 ```
-Pump status: locked  ← pre-auth idle state (default for Pre-Auth pumps)
+Pump status: locked  ← idle state of a Pre-Auth pump
   ↓ server sends UNLOCKPUMP
 Pump status: free  ← pump is now open for this specific customer to fuel
   ↓ customer starts fueling
@@ -156,7 +156,7 @@ Arguments you need to handle:
 | Pump | `3` | Pump to unlock |
 | Currency | `EUR` | Currency of the credit, one of the supported currencies (see Part 2, Step 6) |
 | Credit | `100.00` | Maximum authorized amount |
-| FSCTransactionID | `e2f74ef5-...` | Server-assigned transaction ID — store this, you'll need it |
+| FSCTransactionID | `e2f74ef5-...` | Transaction ID assigned by the server. Store it, you'll need it later |
 | PaymentMethod | `pace` | Payment method in use |
 | ProductID1–8 | *(optional)* | If present, only unlock these specific nozzles |
 
@@ -209,7 +209,7 @@ In the Pre-Auth flow, you do **not** generate your own SiteTransactionID. Instea
 * TRANSACTION 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 ```
 
-This is how the server correlates the pre-authorization with the actual fueling transaction.
+This is how the server links the authorized amount to the actual fueling.
 
 ### Handling LOCKPUMP (Server-Side Cancellation)
 
@@ -229,23 +229,23 @@ Errors to return:
 
 | Code | Meaning |
 |---|---|
-| `402` | Payment required — pump can't be locked due to a pending payment |
+| `402` | Payment required: the pump can't be locked because a payment is pending |
 | `404` | Pump unknown |
 | `423` | Already locked |
 
 ### Handling LOCKEDPUMP (Client-Side Cancellation)
 
-If fueling was never started (zero fuel dispensed) and the Pre-Auth session needs to be cancelled from *your* side — for example due to a timeout or hardware issue — your client sends `LOCKEDPUMP`:
+If no fuel was dispensed and *your* side needs to cancel the Pre-Auth session (for example after a timeout or a hardware problem), your client sends `LOCKEDPUMP`:
 
 ```
 C7 LOCKEDPUMP 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f aborted
 ```
 
 The `Reason` argument must be one of:
-- `aborted` — zero fueling / customer walked away
-- `timeout` — the system aborted due to timeout
+- `aborted`: no fuel dispensed, e.g. the customer left
+- `timeout`: the system canceled the session after a timeout
 
-The server responds `OK` if accepted. Once you receive that acknowledgement, send a pump status update to return the pump to its pre-auth idle state:
+The server responds `OK` if it accepts the cancellation. Then send a pump status update to return the pump to its Pre-Auth idle state:
 
 ```
 Server: C7 OK
@@ -257,7 +257,7 @@ Or the server returns one of these errors:
 | Code | Meaning |
 |---|---|
 | `404` | Invalid transaction and/or pump combination |
-| `403` | Transaction is in invalid state and can't be cancelled |
+| `403` | The transaction is in a state where it can't be canceled |
 | `400` | Invalid reason |
 
 > Remember: `LOCKEDPUMP` is only for the case where **no fuel was dispensed**. If fuel was dispensed, always send a `TRANSACTION` notification instead, even if the amount was very small.
@@ -266,7 +266,7 @@ Or the server returns one of these errors:
 
 ## Step 6: Implement CLEAR
 
-`CLEAR` is the server's instruction to mark a transaction as paid and release the pump. It is used in both the Post-Pay and Pre-Auth flows. The pump status after a successful `CLEAR` differs between the two: Post-Pay pumps return to `free`; Pre-Auth pumps return to `locked` (their idle state).
+With `CLEAR`, the server tells your client that a transaction has been paid, so your client marks it as paid and releases the pump. `CLEAR` is used in both flows. Afterward, Post-Pay pumps return to `free` and Pre-Auth pumps return to `locked` (their idle state).
 
 **Incoming request:**
 ```
@@ -285,9 +285,9 @@ Arguments:
 **On success:**
 1. Mark the transaction as cleared in your POS.
 2. Reply `OK`.
-3. Send a proactive pump status update. The status to report depends on the flow:
-   - **Post-Pay:** return the pump to `free` — it is now idle and available for any customer.
-   - **Pre-Auth:** return the pump to `locked` — this is the Pre-Auth idle state, signalling it is available for the next mobile reservation.
+3. Send a pump status update. The status to report depends on the flow:
+   - **Post-Pay:** return the pump to `free`. It is now available for any customer.
+   - **Pre-Auth:** return the pump to `locked`. This is the Pre-Auth idle state and shows that the pump is available for the next customer using the app.
 
 ```
 S5 OK
@@ -298,26 +298,26 @@ S5 OK
 * PUMP 3 locked   ← Pre-Auth
 ```
 
-**Important:** Mark cleared transactions in your reconciliation lists with "Clearance source: Connected Fueling" and the PaymentMethod used. This is required for back-office reconciliation with the payment operator.
+**Important:** Mark cleared transactions in your reconciliation lists with "Clearance source: Connected Fueling" and the PaymentMethod used. The fuel brand (MOC) needs this to reconcile the site's transactions.
 
 ### CLEAR Error Handling
 
 | Code | When to return | Meaning to the server |
 |---|---|---|
-| `404` | Pump and SiteTransactionID are unknown | Clearing was too long ago, client no longer knows the transaction → triggers back-office process |
+| `404` | Pump and SiteTransactionID are unknown | The transaction is too old and your client no longer knows it → the server starts a manual back-office process |
 | `403` | Payment method not permitted; or, on a retried `CLEAR`, the transaction was paid by other means (usually in the shop) | In the retry case the server cancels its payment transaction |
 | `410` | Transaction not open, FSCTransactionID matches | The initial `CLEAR` was already processed successfully → transaction confirmed |
 
 ### Handling CLEAR After Reconnection
 
-This is one of the trickier edge cases. If your client disconnects while processing a `CLEAR`, the transaction may be in an ambiguous state when you reconnect. The server will retry the `CLEAR` after reconnection. Here is how to respond:
+This is one of the harder edge cases. If the connection drops while your client is handling a `CLEAR`, the server doesn't know whether the `CLEAR` arrived. It therefore sends the `CLEAR` again after your client reconnects. Respond like this:
 
 - **Transaction is still `open`:** The original `CLEAR` was never received. Return `OK` and clear it now as normal.
-- **Transaction is already `cleared`:** Return `ERR 410` — the server will understand the payment went through.
-- **Transaction is unknown (cleared too long ago):** Return `ERR 404` — this triggers a back-office process.
-- **Transaction was paid in the shop:** Return `ERR 403` — the server will cancel its payment transaction.
+- **Transaction is already cleared:** Return `ERR 410`. The server then knows the payment went through.
+- **Transaction is unknown (cleared too long ago):** Return `ERR 404`. This starts a manual back-office process.
+- **Transaction was paid in the shop:** Return `ERR 403`. The server then cancels its payment.
 
-Build this logic into your `CLEAR` handler from the start, not as an afterthought.
+Build this logic into your `CLEAR` handler from the start.
 
 ---
 
@@ -424,14 +424,16 @@ Client: * PUMP 3 locked
 
 ## Common Mistakes to Avoid
 
-- **Using your own SiteTransactionID in Pre-Auth:** In Pre-Auth, the `SiteTransactionID` in your `TRANSACTION` notification must be the `FSCTransactionID` from `UNLOCKPUMP`. Using a different ID will break the server's ability to correlate the authorization with the transaction.
+- **Using your own SiteTransactionID in Pre-Auth:** In Pre-Auth, the `SiteTransactionID` in your `TRANSACTION` notification must be the `FSCTransactionID` from `UNLOCKPUMP`. With a different ID, the server can't link the authorized amount to the transaction.
 - **Sending TRANSACTION for zero-volume fuelings:** If no fuel was dispensed, use `LOCKEDPUMP` instead.
 - **Not handling the CLEAR retry after reconnect:** Implement all four `CLEAR` response cases (normal, 404, 403, 410) from day one.
-- **Forgetting reconciliation marking:** Transactions cleared via OpenFSC must be flagged as such in your reconciliation lists. This is an operational requirement, not just a nice-to-have.
+- **Forgetting reconciliation marking:** Transactions cleared via OpenFSC must be flagged as such in your reconciliation lists. This is a requirement, not an option.
 - **Sending LOCKEDPUMP when fuel was dispensed:** Even a tiny amount of dispensed fuel means a `TRANSACTION` must be reported. `LOCKEDPUMP` is strictly for zero-dispense cancellations.
 
 ---
 
 ## What's Next
 
-You now have everything needed to implement a fully functional OpenFSC client for both Post-Pay and Pre-Auth flows. Part 4 covers advanced topics — Connection Multiplexing, High Availability, and Transaction Information.
+You now have everything you need to build a complete OpenFSC client for Post-Pay and Pre-Auth. Part 4 covers optional extensions: Connection Multiplexing and Transaction Information. High Availability will be documented later.
+
+**Previous:** [Part 2: Pump Status & Prices](part-2.md) · **Next:** [Part 4: Advanced Topics](part-4.md)
