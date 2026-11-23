@@ -81,7 +81,7 @@ sequenceDiagram
     C->>S: Fuels at the pump
     S-->>P: Pump is in use, then ready to pay
     S-->>P: Reports the open transaction (amount, volume, product)
-    P->>C: Shows the bill
+    P->>C: Shows the transaction details (preview)
     C->>P: Pays in the app
     P->>S: Transaction is paid (CLEAR)
     S-->>P: OK, pump is free again
