@@ -29,7 +29,7 @@ Payment itself is not part of OpenFSC. The platform handles the payment with the
 |---|---|
 | **Customer** | Uses an app (for example PACE Drive, a fleet card provider's app, or an in-car system) to select a pump and pay. |
 | **Connected Fueling platform (PACE)** | Runs the **OpenFSC server**. Connects the apps with the sites and handles payment. |
-| **Site** | The fuel station. A POS, a site controller or Site Connect software at the site runs the **OpenFSC client**. |
+| **Site** | The fuel station. A POS or a site controller at the site runs the **OpenFSC client**. |
 | **Pumps** | Controlled by your forecourt controller or POS as usual. OpenFSC never talks to a pump directly. |
 
 ```mermaid
@@ -161,7 +161,7 @@ The `OK` tells the server that all the data has been sent. You will see this pat
 | **Connected Fueling** | PACE's platform for paying for fuel in an app. Also the name used in reconciliation lists for transactions paid this way. |
 | **OpenFSC** | Fueling Site Connect, the protocol between the site and the platform. |
 | **OpenFSC server** | The platform side of the connection, operated by PACE. |
-| **OpenFSC client** | The software at the site (POS, site controller or Site Connect software) that connects to the OpenFSC server. This is what you build. |
+| **OpenFSC client** | The software at the site (POS or site controller) that connects to the OpenFSC server. This is what you build. |
 | **Site** | A fuel station. Each site connects with its own credentials. |
 | **SiteAccessKey and Secret** | The credentials a site uses to log in to the OpenFSC server. You receive them when the site is onboarded. |
 | **Post-Pay** | The customer fuels first and pays afterward. |
