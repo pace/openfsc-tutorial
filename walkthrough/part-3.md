@@ -90,7 +90,7 @@ After answering with the current transactions and `OK`, your client must send a 
 
 ## Step 3: Understand the TRANSACTION Notification Arguments
 
-The `TRANSACTION` notification carries a lot of fields. Here is a breakdown:
+The `TRANSACTION` notification carries a lot of fields, twelve to be exact. Here is a breakdown:
 
 | Position | Name | Example | Notes |
 |---|---|---|---|
@@ -177,7 +177,7 @@ Store it together with the transaction. You need it to recognize a retried `CLEA
 
 ## Step 5: The Pre-Auth Flow
 
-Pre-Auth is common outside Germany and at unmanned sites. The customer authorizes a maximum amount before fueling, and the server then tells your client to unlock the pump.
+Pre-Auth is common outside Germany and at unmanned sites. The customer authorizes a maximum amount before fueling, and the server then tells your client to unlock the pump. Think of it as the safety-first sibling of Post-Pay.
 
 ### Flow Overview
 
@@ -338,7 +338,7 @@ Or the server returns one of these errors:
 
 ## Step 6: Implement CLEAR
 
-With `CLEAR`, the server tells your client that a transaction has been paid, so your client marks it as paid and releases the pump. `CLEAR` is used in both flows. Afterward, Post-Pay pumps return to `free` and Pre-Auth pumps return to `locked` (their idle state).
+This is the message everyone at the site is waiting for. With `CLEAR`, the server tells your client that a transaction has been paid, so your client marks it as paid and releases the pump. `CLEAR` is used in both flows. Afterward, Post-Pay pumps return to `free` and Pre-Auth pumps return to `locked` (their idle state).
 
 **Incoming request (Post-Pay example):**
 ```
@@ -420,6 +420,8 @@ See the [Reference](reference.md#capability-lists) for all lists.
 ---
 
 ## Complete Flow Examples
+
+All of the above in one go, start to finish.
 
 ### Post-Pay (Full Example)
 
@@ -505,6 +507,8 @@ Client: * PUMP 3 locked
 ---
 
 ## Common Mistakes to Avoid
+
+Spare yourself an afternoon of debugging:
 
 - **Using your own SiteTransactionID in Pre-Auth:** In Pre-Auth, the `SiteTransactionID` in your `TRANSACTION` notification must be the `FSCTransactionID` from `UNLOCKPUMP`. With a different ID, the server can't link the authorized amount to the transaction.
 - **Stacking sales:** Releasing a pump for the next customer while its transaction is still open leads to two open transactions on one pump. This is not allowed, and the OpenFSC validator fails it.

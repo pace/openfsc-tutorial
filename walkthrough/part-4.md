@@ -133,7 +133,7 @@ If the initial (unprefixed) connection is closed with `QUIT`, **all sessions on 
 
 ### Listing Active Sessions
 
-You can query which sessions are currently open on your connection:
+You can query which sessions are currently open on your connection. Handy once you're juggling more than a handful of sites:
 
 ```
 C6 SESSIONS
@@ -164,7 +164,7 @@ Both sessions log in with the same SiteAccessKey and Secret. The server communic
 
 ### Reconnecting a Multiplexed Connection
 
-If the shared TCP/WebSocket connection drops, **every session on it is gone**. Reconnect as described in Part 1, Step 10, with one connection-level retry loop and backoff, then rebuild the sessions:
+If the shared TCP/WebSocket connection drops, **every session on it is gone**. One connection, many sites: that's the trade-off. Reconnect as described in Part 1, Step 10, with one connection-level retry loop and backoff, then rebuild the sessions:
 
 1. Exchange `CAPABILITY` on the new connection. Don't log in on it: it stays the control channel.
 2. Recreate each session with `NEWSESSION` (reusing the same SessionIDs and priorities is fine) and authenticate it with `PLAINAUTH`.

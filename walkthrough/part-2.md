@@ -87,7 +87,7 @@ Use one of the standardized categories, e.g. `ron95e10`, `diesel` or `lpg`. The 
 
 ## Step 3: Implement PRICES
 
-`PRICES` asks your client for the current price of every fuel product available at the site.
+`PRICES` asks your client for the current price of every fuel product available at the site. Basically the numbers on the big sign by the road.
 
 **Incoming request:**
 ```
@@ -139,7 +139,7 @@ This way, customers who check the app before arriving at the site always see cur
 
 ## Step 5: Implement PUMPS
 
-`PUMPS` is the server's way of asking for the current status of every pump at your site. The server typically sends it when a customer opens your site in the app.
+`PUMPS` is the server's way of asking for the current status of every pump at your site. The server typically sends it when a customer opens your site in the app. A quick roll call of your forecourt.
 
 **Incoming request:**
 ```
@@ -207,7 +207,7 @@ In both flows, a pump can switch to `out-of-order` at any time and back once it 
 
 ## Step 6: Implement PUMPSTATUS and UpdateTTL
 
-`PUMPSTATUS` is the single-pump equivalent of `PUMPS`. The server uses it to ask about one specific pump, typically when a customer has selected it in the app.
+`PUMPSTATUS` is the single-pump equivalent of `PUMPS`. The server uses it to ask about one specific pump, typically when a customer has selected it in the app. At that moment, someone is standing next to that pump with a phone in their hand, so speed matters.
 
 The pump argument is a pump number from 1 to 99.
 
@@ -301,6 +301,8 @@ The server announces `PRODUCT` in its list, on top of the basic list from Part 1
 
 ## Common Mistakes to Avoid
 
+Learn from other people's mistakes, it's cheaper:
+
 - **Sending `OK` before all notifications:** The server expects all `PRODUCT`, `PRICE` or `PUMP` notifications to arrive before the `OK`. Sending `OK` early may cause the server to act on incomplete data.
 - **Prices for products that weren't announced:** every ProductID in `PRICE` must have been announced with `PRODUCT`, otherwise the server can't categorize it or apply the right VAT rate.
 - **Forgetting the UpdateTTL timer:** If you acknowledge a `PUMPSTATUS` with a TTL but then never send status changes, the server will have an outdated view of that pump while the customer is fueling.
@@ -328,7 +330,7 @@ The server announces `PRODUCT` in its list, on top of the basic list from Part 1
 
 ## Putting It Together: A Typical Exchange After Connecting
 
-Here is what the first minutes after login typically look like (shortened to two products):
+Time to see it all in action. Here is what the first minutes after login typically look like (shortened to two products):
 
 ```
 → Client logs in (Part 1)

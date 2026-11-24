@@ -25,7 +25,7 @@ In this part:
 
 ## Prerequisites
 
-Before writing any code, make sure you have the following on hand:
+Before writing any code, make sure you have the following on hand. Three things, that's all:
 
 - **SiteAccessKey** (a UUID) and **Secret**: the site's credentials for logging in to the OpenFSC server. You receive them when the site is onboarded.
 - **Server address and port**: the OpenFSC server hostname, and either port 443 (WSS/TLS) or the TCP port reachable through the VPN.
@@ -50,7 +50,7 @@ Once the connection is open, you are in the **Not Authenticated State**. Until y
 
 ## Step 2: Understand the Message Format
 
-Every message in the protocol, sent or received, has this structure:
+Good news: OpenFSC has exactly one message format, and it fits on one line. Every message in the protocol, sent or received, has this structure:
 
 ```
 <tag> <method> <arg0> <arg1> ... <argN>
@@ -125,7 +125,7 @@ If your product names are plain ASCII, skip this step for now. "Super Müller Di
 
 ## Step 5: Authenticate with PLAINAUTH
 
-Now send your credentials to transition into the **Authenticated State**:
+Now send your credentials to transition into the **Authenticated State**. The moment of truth:
 
 ```
 C1 PLAINAUTH <SiteAccessKey> <Secret>
@@ -240,7 +240,7 @@ Your implementation checklist for heartbeats:
 
 ## Step 8: Implement QUIT Handling
 
-The server may send a `QUIT` notification at any time to signal it is about to disconnect:
+The server may send a `QUIT` notification at any time to signal it is about to disconnect. Think of it as a polite goodbye before hanging up:
 
 ```
 * QUIT <reason message>
@@ -262,7 +262,7 @@ Saying goodbye is optional (you may also just close the socket), but it's good m
 
 ## Step 9: Handle Unknown and Error Messages Gracefully
 
-During development (and in production), you may receive methods you don't yet handle, or send requests that result in errors. Build these habits in early:
+During development (and in production), you may receive methods you don't yet handle, or send requests that result in errors. It happens to the best of us. Build these habits in early:
 
 - **Unknown method received:** Reply with `ERR 405 Method unknown` using the incoming tag, then continue operating normally. Do not crash.
 - **Bad request from your side:** If you receive `ERR 400 Bad request`, check the message you sent. Most likely the tag, an argument or the method name is malformed.
@@ -318,7 +318,7 @@ flowchart TD
 
 ### Clean Up Connection State
 
-When a connection ends, discard everything that belonged to it:
+When a connection ends, discard everything that belonged to it. A fresh start is a clean start:
 
 - **Your open requests:** mark every entry in your tag manager (Step 6) as failed. No response for those tags will arrive. Don't simply resend them on the new connection: decide per request whether it is still needed.
 - **Incoming requests you haven't answered yet:** drop them. The server tags (`S…`) belong to the old connection and must not be answered on the new one.
