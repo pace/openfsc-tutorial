@@ -3,6 +3,21 @@
 
 This part takes you from opening the connection to the OpenFSC server to a stable, authenticated connection that answers heartbeats and reconnects on its own. If you are new to OpenFSC, read the [Overview](overview.md) first.
 
+In this part:
+
+- [Prerequisites](#prerequisites)
+- [Step 1: Open a TCP/WebSocket Connection](#step-1-open-a-tcpwebsocket-connection)
+- [Step 2: Understand the Message Format](#step-2-understand-the-message-format)
+- [Step 3: Handle the CAPABILITY Exchange](#step-3-handle-the-capability-exchange)
+- [Step 4: (Optional) Negotiate Character Encoding](#step-4-optional-negotiate-character-encoding)
+- [Step 5: Authenticate with PLAINAUTH](#step-5-authenticate-with-plainauth)
+- [Step 6: Implement a Tag Manager](#step-6-implement-a-tag-manager)
+- [Step 7: Implement HEARTBEAT / BEAT](#step-7-implement-heartbeat--beat)
+- [Step 8: Implement QUIT Handling](#step-8-implement-quit-handling)
+- [Step 9: Handle Unknown and Error Messages Gracefully](#step-9-handle-unknown-and-error-messages-gracefully)
+- [Step 10: Reconnect Robustly](#step-10-reconnect-robustly)
+- [Connection State Summary](#connection-state-summary)
+
 ---
 
 ## Prerequisites
@@ -133,6 +148,35 @@ C1 ERR 401 SiteAccessKey and/or secret are not valid
 
 In this case, check your credentials. Retrying with wrong credentials won't help: report the error and wait until an operator fixes the credentials.
 
+### The Handshake at a Glance
+
+Steps 1 to 5 together:
+
+```mermaid
+sequenceDiagram
+    participant Client as OpenFSC client
+    participant Server as OpenFSC server
+    Client->>Server: opens WSS or TCP connection
+    Note over Client,Server: Not Authenticated State
+    par both sides at the same time
+        Client->>Server: * CAPABILITY CLEAR HEARTBEAT PRICES …
+    and
+        Server->>Client: * CAPABILITY BEAT CHARSET PLAINAUTH …
+    end
+    opt only if you need another encoding
+        Client->>Server: C0 CHARSET UTF-8
+        Server-->>Client: C0 OK
+    end
+    Client->>Server: C1 PLAINAUTH 9eb56d5e-… 1d3b755d…
+    alt credentials valid
+        Server-->>Client: C1 OK
+        Note over Client,Server: Authenticated State
+    else credentials wrong
+        Server-->>Client: C1 ERR 401 …
+        Note over Client: stop, alert an operator
+    end
+```
+
 ---
 
 ## Step 6: Implement a Tag Manager
@@ -168,6 +212,18 @@ S6 BEAT 2019-11-13T08:00:05+01:00
 ```
 S6 OK
 ```
+
+```mermaid
+sequenceDiagram
+    participant Server as OpenFSC server
+    participant Client as OpenFSC client
+    Server->>Client: S6 HEARTBEAT 2019-11-13T07:00:04Z
+    Note over Client: answer within 20 seconds
+    Client-->>Server: S6 BEAT 2019-11-13T08:00:05+01:00
+    Client-->>Server: S6 OK
+```
+
+If the server's timestamp can't be parsed as RFC-3339, answer with `S6 ERR 422 Timestamp invalid` instead of `BEAT` and `OK`. This shouldn't happen with the PACE server, but it is the error code the spec defines for `HEARTBEAT`.
 
 The `BEAT` message is only informational: it lets the server see how far your clock differs from its own. The `OK` is what completes the `HEARTBEAT` request.
 
@@ -246,6 +302,17 @@ Reconnecting over and over without a pause while the server is unreachable waste
 
 The one exception is `ERR 401` on `PLAINAUTH` (Step 5): wrong credentials won't fix themselves, so stop retrying, report the error and wait for an operator.
 
+```mermaid
+flowchart TD
+    lost["Connection lost<br/>(QUIT, socket error or dead connection)"] --> cleanup["Clean up connection state"]
+    cleanup --> connect["Open new connection,<br/>run handshake (Steps 1–5)"]
+    connect --> auth{"PLAINAUTH answer?"}
+    auth -- OK --> reset["Reset delay to 1 s<br/>Connected"]
+    auth -- "ERR 401" --> stop["Stop retrying,<br/>alert an operator"]
+    auth -- "no answer or<br/>connection failed" --> wait["Wait: delay ±20%,<br/>then double it (max 60 s)"]
+    wait --> connect
+```
+
 ### Clean Up Connection State
 
 When a connection ends, discard everything that belonged to it:
@@ -280,23 +347,25 @@ Your implementation checklist for reconnection:
 
 Here is the complete lifecycle of a connection:
 
-```
-[Socket Connected]
-       │
-       ▼
-[Not Authenticated State]
-  • Both sides send CAPABILITY simultaneously
-  • Client optionally sends CHARSET
-  • Client sends PLAINAUTH → receives OK
-       │
-       ▼
-[Authenticated State]
-  • Normal operation (pumps, prices, transactions)
-  • Server sends HEARTBEAT periodically → client replies BEAT + OK
-  • Either side may send QUIT → reconnect (Step 10)
-       │
-       ▼
-[Disconnected → Reconnect with backoff (Step 10)]
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> NotAuthenticated: socket connected
+    NotAuthenticated --> Authenticated: PLAINAUTH answered with OK
+    NotAuthenticated --> Disconnected: error or ERR 401
+    Authenticated --> Disconnected: QUIT, socket error<br/>or dead connection
+    Disconnected --> NotAuthenticated: reconnect after backoff (Step 10)
+    Disconnected --> [*]: ERR 401: stop, alert an operator
+    NotAuthenticated: Not Authenticated State
+    note right of NotAuthenticated
+        CAPABILITY from both sides,
+        optional CHARSET, PLAINAUTH
+    end note
+    Authenticated: Authenticated State
+    note right of Authenticated
+        Products, prices, pumps, transactions.
+        HEARTBEAT answered with BEAT + OK
+    end note
 ```
 
 ---
