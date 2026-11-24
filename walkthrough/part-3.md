@@ -387,12 +387,7 @@ S5 OK
 
 ### Handling CLEAR After Reconnection
 
-This is one of the harder edge cases. If the connection drops while your client is handling a `CLEAR`, the server doesn't know whether the `CLEAR` arrived. It therefore sends the `CLEAR` again after your client reconnects. Respond like this:
-
-- **Transaction is still `open`:** The original `CLEAR` was never received. Return `OK` and clear it now as normal.
-- **Transaction is already cleared:** Return `ERR 410`. The server then knows the payment went through.
-- **Transaction is unknown (cleared too long ago):** Return `ERR 404`. This starts a manual back-office process.
-- **Transaction was paid in the shop:** Return `ERR 403`. The server then cancels its payment.
+This is one of the harder edge cases. If the connection drops while your client is handling a `CLEAR`, the server doesn't know whether the `CLEAR` arrived. It therefore sends the `CLEAR` again after your client reconnects. Your client answers a retried `CLEAR` exactly like a first one, with the codes from the table above:
 
 ```mermaid
 flowchart TD
@@ -414,19 +409,13 @@ Build this logic into your `CLEAR` handler from the start.
 
 ## Step 7: Update Your CAPABILITY Announcement
 
-Make sure all newly implemented methods are reflected in your `CAPABILITY` notification. For Post-Pay, the list from Part 2 is already complete:
-
-```
-* CAPABILITY CLEAR HEARTBEAT PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS
-```
-
-If you also implement Pre-Auth, add `LOCKPUMP` and `UNLOCKPUMP`:
+For Post-Pay, the list from Part 2 is already complete. For Pre-Auth, add `LOCKPUMP` and `UNLOCKPUMP`:
 
 ```
 * CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS UNLOCKPUMP
 ```
 
-`TRANSACTION` and `LOCKEDPUMP` are notifications/requests your client *sends*, so they are not part of your list.
+See the [Reference](reference.md#capability-lists) for all lists.
 
 ---
 

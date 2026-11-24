@@ -6,8 +6,8 @@ This part covers optional extensions to the core protocol: Connection Multiplexi
 In this part:
 
 - [Extension 1: Connection Multiplexing](#extension-1-connection-multiplexing)
-- [Extension 2: High Availability](#extension-2-high-availability)
-- [Extension 3: Transaction Information](#extension-3-transaction-information)
+- [Extension 2: Transaction Information](#extension-2-transaction-information)
+- [High Availability](#high-availability)
 - [Checklist](#checklist)
 
 ---
@@ -176,23 +176,11 @@ For dead-connection detection, rely on transport-level keepalive (TCP keepalive 
 
 ### CAPABILITY Update
 
-Your own capability announcement does not change. `NEWSESSION` and `SESSIONS` are methods your client *sends*, so only the server announces them. If it supports multiplexing, its list looks like this:
-
-```
-* CAPABILITY BEAT CHARSET NEWSESSION PLAINAUTH PRICE PUMP SESSIONS TRANSACTION LOCKEDPUMP QUIT
-```
-
-Your client keeps announcing the methods it handles (Part 3, Step 7) and only checks that the server's list contains `NEWSESSION` and `SESSIONS`.
+Your own list does not change. Your client only checks that the server's list contains `NEWSESSION` and `SESSIONS` (see the [Reference](reference.md#capability-lists)).
 
 ---
 
-## Extension 2: High Availability
-
-> **This section is not yet available.** The HA extension is currently being replaced with an alternative solution. It will be documented here once the new solution is available for general use.
-
----
-
-## Extension 3: Transaction Information
+## Extension 2: Transaction Information
 
 ### What Problem Does It Solve?
 
@@ -297,11 +285,13 @@ In Post-Pay, your client can only link the values to its own transaction when th
 
 ### CAPABILITY Update
 
-Add `TRANSACTIONINFO` to your capability announcement, since your client handles that notification:
+Add `TRANSACTIONINFO` to your list, since your client handles that notification. The server announces it too (see the [Reference](reference.md#capability-lists)).
 
-```
-* CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONINFO TRANSACTIONS UNLOCKPUMP
-```
+---
+
+## High Availability
+
+> **Not yet available.** The HA extension is currently being replaced with an alternative solution. It will be documented here once the new solution is available for general use.
 
 ---
 
@@ -325,6 +315,6 @@ Transaction Information (only if agreed with PACE):
 
 ## What's Next
 
-You have reached the end of the walkthrough. The [Reference](reference.md) lists all error codes per method in one place.
+You have reached the end of the walkthrough. The [Reference](reference.md) has the `CAPABILITY` lists, the product categories and all error codes in one place.
 
-**Previous:** [Part 3: Transactions](part-3.md) · **Next:** [Reference: Error Codes](reference.md)
+**Previous:** [Part 3: Transactions](part-3.md) · **Next:** [Reference](reference.md)

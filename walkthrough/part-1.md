@@ -17,6 +17,7 @@ In this part:
 - [Step 9: Handle Unknown and Error Messages Gracefully](#step-9-handle-unknown-and-error-messages-gracefully)
 - [Step 10: Reconnect Robustly](#step-10-reconnect-robustly)
 - [Connection State Summary](#connection-state-summary)
+- [Checklist](#checklist)
 
 ---
 
@@ -72,14 +73,9 @@ Immediately after the connection is open, **both sides send a `CAPABILITY` notif
 * CAPABILITY CLEAR HEARTBEAT PRICES PUMPS PUMPSTATUS QUIT TRANSACTIONS
 ```
 
-This tells the server which methods *your client* can handle, i.e. the requests and notifications the server may send to you. At minimum you must announce the methods you actually implement. For the connection phase, the relevant ones are:
+`CAPABILITY` lists the methods the **sending side handles**. Your client lists the server's requests it answers (`HEARTBEAT`, `PRICES`, `PUMPS`, `PUMPSTATUS`, `TRANSACTIONS`, `CLEAR`) and `QUIT`. Methods your client *sends* (`CHARSET`, `PLAINAUTH`, `BEAT`, `PRICE`, `PUMP`, `TRANSACTION`, `LOCKEDPUMP`) belong in the server's list, not yours.
 
-- `HEARTBEAT`: your client handles heartbeat requests (and answers them with `BEAT`, see Step 7)
-- `QUIT`: your client understands disconnect notifications
-
-The remaining methods in the list (`CLEAR`, `PRICES`, `PUMPS`, `PUMPSTATUS`, `TRANSACTIONS`) are the server requests you will implement in Parts 2 and 3. As you implement more functionality, you will add the matching methods to this list: `PRODUCTS` in Part 2, `LOCKPUMP` and `UNLOCKPUMP` (Pre-Auth only) in Part 3 and `TRANSACTIONINFO` in Part 4.
-
-> **Note:** `CAPABILITY` lists the methods the *sending* party handles. Methods your client *sends* (`CHARSET`, `PLAINAUTH`, `BEAT`, `PRICE`, `PUMP`, `TRANSACTION`, `LOCKEDPUMP`) belong to the server's list, not yours. Don't copy the server's list below into your own announcement.
+You add methods as you implement them: `PRODUCTS` in Part 2, `LOCKPUMP` and `UNLOCKPUMP` for Pre-Auth in Part 3, `TRANSACTIONINFO` in Part 4. The [Reference](reference.md#capability-lists) has all lists in one table.
 
 **What to expect from the server:**
 
@@ -87,7 +83,7 @@ The remaining methods in the list (`CLEAR`, `PRICES`, `PUMPS`, `PUMPSTATUS`, `TR
 * CAPABILITY BEAT CHARSET PLAINAUTH PRICE PUMP TRANSACTION LOCKEDPUMP QUIT
 ```
 
-Parse the server's capability list and store it. The server announces the methods *it* handles: `BEAT`, `CHARSET`, `PLAINAUTH`, `PRICE`, `PUMP`, `TRANSACTION`, `LOCKEDPUMP` and `QUIT`. In the future, you can use this to detect which optional features the server supports (for example `NEWSESSION` and `SESSIONS` if it supports Connection Multiplexing, see Part 4). Your client announces `HEARTBEAT` because it handles that request, so make sure it is in your list.
+Store the server's list. This is the basic list; extensions only appear in it if the server supports them, e.g. `PRODUCT` (Part 2) or `NEWSESSION` and `SESSIONS` (Part 4).
 
 > `CAPABILITY` is a **Notification** (tag `*`), so neither side sends an `OK` or `ERR` in response. Just send it and move on.
 
@@ -369,6 +365,21 @@ stateDiagram-v2
         HEARTBEAT answered with BEAT + OK
     end note
 ```
+
+---
+
+## Checklist
+
+- [ ] Open a WSS (port 443) or TCP-over-VPN connection and parse messages up to `\r\n`.
+- [ ] Send your `CAPABILITY` first, and store the server's list.
+- [ ] Use `CHARSET` only if needed, with `WINDOWS-1252`, `ISO-8859-1` or `UTF-8`, before `PLAINAUTH`.
+- [ ] Log in with `PLAINAUTH`; on `ERR 401`, stop and alert an operator.
+- [ ] Use unique client tags (`C0`, `C1`, …) and answer every server request with its own tag.
+- [ ] Answer `HEARTBEAT` within 20 seconds with `BEAT` and `OK`.
+- [ ] Answer unknown methods with `ERR 405` and keep the connection open.
+- [ ] Reconnect on `QUIT`, socket errors and dead connections, with backoff (1 s doubling to 60 s, ±20%).
+- [ ] Use TCP keepalive or WebSocket pings to detect dead connections.
+- [ ] On disconnect, fail your open requests, drop unanswered server requests and clear the read buffer.
 
 ---
 
