@@ -42,23 +42,7 @@ sequenceDiagram
 
 ## Step 1: Understand the Notification Pattern
 
-Before looking at the individual methods, note a pattern that repeats throughout the protocol: **one request is answered with several notifications**.
-
-When the server wants all pump statuses, it doesn't ask for one pump at a time. It sends a single request (`PUMPS`), and your client answers with one `PUMP` notification per pump, followed by a final `OK` that completes the request. The same pattern applies to products (`PRODUCTS` → `PRODUCT`), prices (`PRICES` → `PRICE`) and, in Part 3, transactions.
-
-```
-Server:  S1 PUMPS
-Client:  * PUMP 1 free
-Client:  * PUMP 2 in-use
-Client:  * PUMP 3 ready-to-pay
-Client:  S1 OK
-```
-
-Two things to note:
-- The individual `PUMP` notifications use the `*` tag. They expect no reply.
-- The `OK` uses the **server's tag** (`S1`) to complete *that specific request*.
-
-Make sure all notifications are sent before you send the `OK`. The server considers the request complete once it receives the `OK`.
+All requests in this part follow the pattern from the [Overview](overview.md#how-messages-work): one request, answered with one notification per item (tag `*`), then `OK` with the server's tag. Send all notifications before the `OK`: the server treats the request as complete once the `OK` arrives.
 
 ---
 
@@ -97,35 +81,7 @@ Client: S0 OK
 
 ### Product Categories
 
-Use the matching category from this list:
-
-| Category | Description |
-|---|---|
-| `ron95e5` | RON 95 (up to 5% bio additives) |
-| `ron95e10` | RON 95 (up to 10% bio additives) |
-| `ron98` | RON 98 |
-| `ron98e5` | RON 98 (up to 5% bio additives) |
-| `ron100` | RON 100 |
-| `e85` | Ethanol (85%) |
-| `diesel` | Diesel |
-| `dieselB0` | Diesel (0% bio additives) |
-| `dieselB7` | Diesel (up to 7% bio additives) |
-| `dieselPremium` | Premium Diesel |
-| `dieselHvo` | HVO / CARE Diesel |
-| `dieselGtl` | GTL/XTL Diesel (synthetic) |
-| `dieselSynthetic` | Other synthetic Diesel (EN 15940) |
-| `truckDiesel` | Diesel for commercial vehicles |
-| `truckDieselPremium` | Premium Diesel for commercial vehicles |
-| `lpg` | Liquefied petroleum gas |
-| `truckLpg` | LPG for commercial vehicles |
-| `cng` | Compressed natural gas |
-| `lng` | Liquefied natural gas |
-| `h2` | Hydrogen |
-| `adBlue` | AdBlue (DEF / AUS 32) |
-| `truckAdBlue` | AdBlue for commercial vehicles |
-| `heatingOil` | Heating oil |
-
-Do **not** use `careDiesel` or `syntheticDiesel`. They are deprecated: use `dieselHvo` and `dieselSynthetic` instead.
+Use one of the standardized categories, e.g. `ron95e10`, `diesel` or `lpg`. The full list of 23 categories is in the [Reference](reference.md#product-categories). Do not use the deprecated `careDiesel` and `syntheticDiesel`.
 
 ---
 
@@ -214,6 +170,8 @@ Your POS system must map its internal pump states to one of these values:
 | `out-of-order` | Pump is not operational |
 
 Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
+
+The idle status also decides which process the app starts. When a customer selects a pump, the app looks at its status: a `locked` pump starts Pre-Auth (the app asks the customer to authorize an amount), a `free` pump starts Post-Pay (the app shows `free` or `in-use` and waits for `ready-to-pay`). So a Pre-Auth pump must report `locked` and a Post-Pay pump `free` whenever it is idle.
 
 > The spec also lists an `in-transaction` status, but it is deprecated. Do not implement or send it.
 
@@ -331,15 +289,13 @@ This keeps the server's view of your forecourt up to date. The server uses this 
 
 ## Step 8: Update Your CAPABILITY Announcement
 
-Now that you're implementing pump, price, and product methods, update the `CAPABILITY` notification you send during the handshake (Part 1, Step 3) to include the new method:
+Add `PRODUCTS` to the `CAPABILITY` you send in the handshake (Part 1, Step 3):
 
 ```
 * CAPABILITY CLEAR HEARTBEAT PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS
 ```
 
-Added here: `PRODUCTS`. `PRICES`, `PUMPS` and `PUMPSTATUS` are part of the core set from Part 1, and you implement them in this part. (`CLEAR` and `TRANSACTIONS` are for Part 3, but they are shown here for completeness.)
-
-Remember that `CAPABILITY` lists the methods your client *handles*, i.e. the server's requests. `PRICE`, `PUMP` and `PRODUCT` are notifications your client *sends*, so they don't belong in your list.
+The server announces `PRODUCT` in its list, on top of the basic list from Part 1, because product mapping is an extension. All lists are in the [Reference](reference.md#capability-lists).
 
 ---
 

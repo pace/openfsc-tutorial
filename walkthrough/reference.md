@@ -1,7 +1,71 @@
 # OpenFSC Client Implementation Walkthrough
-## Reference: Error Codes
+## Reference
 
-This page lists all error codes in one place. An error always concludes a request and uses the request's tag:
+Lookup tables for the walkthrough:
+
+- [CAPABILITY Lists](#capability-lists)
+- [Product Categories](#product-categories)
+- [Error Codes](#error-codes)
+
+---
+
+## CAPABILITY Lists
+
+Each side lists the methods it **handles**. Build your list from the rows that apply to your client:
+
+| Your client supports | Your client adds | The server adds | Part |
+|---|---|---|---|
+| Core (always) | `CLEAR` `HEARTBEAT` `PRICES` `PUMPS` `PUMPSTATUS` `QUIT` `TRANSACTIONS` | `BEAT` `CHARSET` `PLAINAUTH` `PRICE` `PUMP` `TRANSACTION` `LOCKEDPUMP` `QUIT` | 1 |
+| Product Mapping (treat as mandatory) | `PRODUCTS` | `PRODUCT` | 2 |
+| Pre-Auth | `LOCKPUMP` `UNLOCKPUMP` | (in the core list) | 3 |
+| Transaction Information | `TRANSACTIONINFO` | `TRANSACTIONINFO` | 4 |
+| Connection Multiplexing | nothing | `NEWSESSION` `SESSIONS` | 4 |
+
+For example, a client with Post-Pay, Pre-Auth and Product Mapping sends:
+
+```
+* CAPABILITY CLEAR HEARTBEAT LOCKPUMP PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS UNLOCKPUMP
+```
+
+---
+
+## Product Categories
+
+The `Category` argument of `PRODUCT` (Part 2, Step 2) must be one of these:
+
+| Category | Description |
+|---|---|
+| `ron95e5` | RON 95 (up to 5% bio additives) |
+| `ron95e10` | RON 95 (up to 10% bio additives) |
+| `ron98` | RON 98 |
+| `ron98e5` | RON 98 (up to 5% bio additives) |
+| `ron100` | RON 100 |
+| `e85` | Ethanol (85%) |
+| `diesel` | Diesel |
+| `dieselB0` | Diesel (0% bio additives) |
+| `dieselB7` | Diesel (up to 7% bio additives) |
+| `dieselPremium` | Premium Diesel |
+| `dieselHvo` | HVO / CARE Diesel |
+| `dieselGtl` | GTL/XTL Diesel (synthetic) |
+| `dieselSynthetic` | Other synthetic Diesel (EN 15940) |
+| `truckDiesel` | Diesel for commercial vehicles |
+| `truckDieselPremium` | Premium Diesel for commercial vehicles |
+| `lpg` | Liquefied petroleum gas |
+| `truckLpg` | LPG for commercial vehicles |
+| `cng` | Compressed natural gas |
+| `lng` | Liquefied natural gas |
+| `h2` | Hydrogen |
+| `adBlue` | AdBlue (DEF / AUS 32) |
+| `truckAdBlue` | AdBlue for commercial vehicles |
+| `heatingOil` | Heating oil |
+
+Do **not** use `careDiesel` or `syntheticDiesel`. They are deprecated: use `dieselHvo` and `dieselSynthetic` instead.
+
+---
+
+## Error Codes
+
+An error always concludes a request and uses the request's tag:
 
 ```
 <tag> ERR <code> <message>
@@ -9,9 +73,7 @@ This page lists all error codes in one place. An error always concludes a reques
 
 The message is free text for humans. The server and your client only act on the code.
 
----
-
-## General Error Codes
+### General Error Codes
 
 These codes apply to every request, in both directions.
 
@@ -27,7 +89,7 @@ Answer unknown methods with `405` and keep the connection open (Part 1, Step 9).
 
 ---
 
-## Errors Your Client Returns
+### Errors Your Client Returns
 
 The server sends these requests. Your client answers with `OK` or one of these codes.
 
@@ -53,7 +115,7 @@ The server sends these requests. Your client answers with `OK` or one of these c
 
 ---
 
-## Errors Your Client Receives
+### Errors Your Client Receives
 
 Your client sends these requests. The server answers with `OK` or one of these codes.
 

@@ -29,7 +29,7 @@ Covers the two payment flows, Post-Pay and Pre-Auth: how to report transactions,
 ### [Part 4: Advanced Topics](walkthrough/part-4.md)
 Covers optional protocol extensions: Connection Multiplexing (connecting several sites over one connection) and Transaction Information (receiving card data for a payment). High Availability will be documented later.
 
-### [Reference: Error Codes](walkthrough/reference.md)
-All error codes per method in one place: the ones your client returns and the ones it receives.
+### [Reference](walkthrough/reference.md)
+Lookup tables: the complete `CAPABILITY` lists, all product categories, and all error codes per method.
 
 ---
