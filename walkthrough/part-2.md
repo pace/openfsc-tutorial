@@ -1,7 +1,41 @@
 # OpenFSC Client Implementation Walkthrough
-## Part 2: Pump Status & Prices
+## Part 2: Products, Prices & Pump Status
 
-Once your client is connected and logged in (Part 1), the server asks for your products and prices right away. It asks for pump statuses later, whenever a customer needs them. This part covers how to answer these requests, how to send updates without being asked, and how `UpdateTTL` asks your client to send status updates for a limited time.
+Once your client is connected and logged in (Part 1), the server asks for your products and prices right away. It asks for pump statuses later, whenever a customer needs them. This part covers how to answer these requests, how to send changes without being asked, and how `UpdateTTL` asks your client to send status updates for a limited time.
+
+In this part:
+
+- [Step 1: Understand the Notification Pattern](#step-1-understand-the-notification-pattern)
+- [Step 2: Announce Products with PRODUCTS / PRODUCT](#step-2-announce-products-with-products--product)
+- [Step 3: Implement PRICES](#step-3-implement-prices)
+- [Step 4: Send Price Changes](#step-4-send-price-changes)
+- [Step 5: Implement PUMPS](#step-5-implement-pumps)
+- [Step 6: Implement PUMPSTATUS and UpdateTTL](#step-6-implement-pumpstatus-and-updatettl)
+- [Step 7: Send Pump Status Changes](#step-7-send-pump-status-changes)
+- [Step 8: Update Your CAPABILITY Announcement](#step-8-update-your-capability-announcement)
+
+The steps follow the order in which the server uses these methods:
+
+```mermaid
+sequenceDiagram
+    participant Server as OpenFSC server
+    participant Client as OpenFSC client
+    Note over Server,Client: Right after login
+    Server->>Client: PRODUCTS (Step 2)
+    Client-->>Server: PRODUCT … PRODUCT, OK
+    Server->>Client: PRICES (Step 3)
+    Client-->>Server: PRICE … PRICE, OK
+    Note over Server,Client: Any time a price changes
+    Client-->>Server: PRICE (Step 4)
+    Note over Server,Client: When a customer opens the site in the app
+    Server->>Client: PUMPS (Step 5)
+    Client-->>Server: PUMP … PUMP, OK
+    Note over Server,Client: When a customer selects a pump
+    Server->>Client: PUMPSTATUS with UpdateTTL (Step 6)
+    Client-->>Server: PUMP, OK
+    Note over Server,Client: Any time a pump status changes
+    Client-->>Server: PUMP (Step 7)
+```
 
 ---
 
@@ -9,7 +43,7 @@ Once your client is connected and logged in (Part 1), the server asks for your p
 
 Before looking at the individual methods, note a pattern that repeats throughout the protocol: **one request is answered with several notifications**.
 
-When the server wants all pump statuses, it doesn't ask for one pump at a time. It sends a single request (`PUMPS`), and your client answers with one `PUMP` notification per pump, followed by a final `OK` that completes the request. The same pattern applies to prices (`PRICES` → multiple `PRICE` notifications → `OK`).
+When the server wants all pump statuses, it doesn't ask for one pump at a time. It sends a single request (`PUMPS`), and your client answers with one `PUMP` notification per pump, followed by a final `OK` that completes the request. The same pattern applies to products (`PRODUCTS` → `PRODUCT`), prices (`PRICES` → `PRICE`) and, in Part 3, transactions.
 
 ```
 Server:  S1 PUMPS
@@ -27,108 +61,7 @@ Make sure all notifications are sent before you send the `OK`. The server consid
 
 ---
 
-## Step 2: Implement PUMPS
-
-`PUMPS` is the server's way of asking for the current status of every pump at your site.
-
-**Incoming request:**
-```
-S1 PUMPS
-```
-
-**Your response: one `PUMP` notification per pump, then `OK`:**
-```
-* PUMP 1 free
-* PUMP 2 out-of-order
-* PUMP 3 in-use
-* PUMP 4 ready-to-pay
-S1 OK
-```
-
-### Pump Statuses
-
-Pump numbers are integers from **1 to 99**.
-
-Your POS system must map its internal pump states to one of these values:
-
-| Status | Meaning |
-|---|---|
-| `free` | Pump is idle and available for use |
-| `in-use` | Customer is currently fueling |
-| `ready-to-pay` | Fueling complete, awaiting payment (Post-Pay) |
-| `locked` | Pump is locked, which is the default status in the Pre-Auth workflow (a customer can reserve it in the app to start fueling) |
-| `out-of-order` | Pump is not operational |
-
-Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
-
-> The spec also lists an `in-transaction` status, but it is deprecated. Do not implement or send it.
-
----
-
-## Step 3: Implement PUMPSTATUS
-
-`PUMPSTATUS` is the single-pump equivalent of `PUMPS`. The server uses it to ask about one specific pump, often when a customer has selected it in the app.
-
-The pump argument is a pump number from 1 to 99.
-
-**Incoming request (basic):**
-```
-S2 PUMPSTATUS 3
-```
-
-**Your response:**
-```
-* PUMP 3 free
-S2 OK
-```
-
-Errors to handle:
-- If the pump number is unknown, reply with `ERR 404 Pump unknown` instead of `OK`.
-
-### The UpdateTTL Subscription
-
-`PUMPSTATUS` has an important optional second argument: `UpdateTTL` (time to live). It is a number of seconds. During this time, your client must **send a notification every time the status of that pump changes**.
-
-**Incoming request with TTL:**
-```
-S3 PUMPSTATUS 3 30
-```
-
-Your response works the same way: send the current status, then `OK`:
-```
-* PUMP 3 free
-S3 OK
-```
-
-But now, for (at least) the next 30 seconds, if pump 3 changes state, you must send a notification:
-```
-* PUMP 3 in-use
-* PUMP 3 ready-to-pay
-```
-
-These are notifications with the `*` tag that your client sends on its own. No `OK` is needed for them.
-
-Implementation notes:
-- The valid TTL range is **30 to 300 seconds**. If the value is outside this range, reply with `ERR 416 UpdateTTL is too high or too low (valid range: 30 to 300, both inclusive)`.
-- A new `PUMPSTATUS` request for the same pump restarts the timer.
-- **Only send updates when the status actually changes.** Don't poll and send the same status repeatedly.
-- Several pumps can have an active `UpdateTTL` at the same time, so track the timer per pump.
-
----
-
-## Step 4: Implement Proactive PUMP Notifications
-
-Your client doesn't need to wait to be asked. Whenever a pump's status changes, send a `PUMP` notification, whether there is an active `UpdateTTL` or not:
-
-```
-* PUMP 3 in-use
-```
-
-This keeps the server's view of your forecourt up to date. The server uses this data to update what customers see in the app, so send these updates as soon as your POS detects the change.
-
----
-
-## Step 5: Announce Products with PRODUCTS / PRODUCT
+## Step 2: Announce Products with PRODUCTS / PRODUCT
 
 Before sending prices, you must tell the server which products you sell and what kind of fuel each one is, using the `PRODUCTS` / `PRODUCT` methods. This lets the server categorize your products correctly (e.g. as diesel, petrol, LPG), whatever your internal product IDs and names are. It also carries the **VAT rate** per product, which is needed for payment.
 
@@ -138,15 +71,15 @@ Before sending prices, you must tell the server which products you sell and what
 
 The server asks for `PRODUCTS` before it asks for `PRICES`, so that it knows which products the following `PRICE` notifications refer to.
 
-`PRODUCTS` follows the same request/notification/OK pattern as `PUMPS` and `PRICES`. The server sends a `PRODUCTS` request, and your client responds with one `PRODUCT` notification per product, followed by `OK`:
+The server sends a `PRODUCTS` request, and your client responds with one `PRODUCT` notification per product, followed by `OK`:
 
 ```
-Server: S2 PRODUCTS
+Server: S0 PRODUCTS
 Client: * PRODUCT 0100 ron98 19.0
 Client: * PRODUCT 0200 ron95e10 19.0 LTR
 Client: * PRODUCT 0300 ron95e5 19.0
 Client: * PRODUCT 0400 diesel 19.0
-Client: S2 OK
+Client: S0 OK
 ```
 
 ### PRODUCT Arguments
@@ -195,13 +128,13 @@ Do **not** use `careDiesel` or `syntheticDiesel`. They are deprecated: use `dies
 
 ---
 
-## Step 6: Implement PRICES
+## Step 3: Implement PRICES
 
 `PRICES` asks your client for the current price of every fuel product available at the site.
 
 **Incoming request:**
 ```
-S0 PRICES
+S1 PRICES
 ```
 
 **Your response: one `PRICE` notification per product, then `OK`:**
@@ -209,8 +142,11 @@ S0 PRICES
 * PRICE 0100 LTR EUR 1.339 Super Plus
 * PRICE 0200 LTR EUR 1.229 Super 95
 * PRICE 0300 LTR EUR 1.499 Super 95 E5
-S0 OK
+* PRICE 0400 LTR EUR 1.459 Diesel
+S1 OK
 ```
+
+Send a `PRICE` for every product you announced with `PRODUCT`, using the same ProductIDs.
 
 ### PRICE Arguments Explained
 
@@ -218,23 +154,23 @@ Each `PRICE` notification has the following fields:
 
 | Argument | Example | Notes |
 |---|---|---|
-| ProductID | `0100` | Your internal product identifier |
+| ProductID | `0100` | Your internal product identifier, as announced with `PRODUCT` |
 | Unit | `LTR` | Always `LTR` (liters) for now |
 | Currency | `EUR` | One of the supported currencies listed below |
 | PricePerUnit | `1.339` | End-user price **including VAT**, per liter. At most 4 integer digits and 1 to 3 fractional digits; whole values need a fractional part (e.g. `589.0`, not `589`) |
 | Description | `Super Plus` | Product name as shown to the customer. May contain spaces (see below) |
 
-The supported currencies are listed in the spec's [Supported Currencies](https://github.com/pace/openfsc-spec/blob/main/1.0/openfsc-spec.md#416-supported-currencies) (4.1.6): `EUR`, `CHF`, `GBP`, `DKK`, `SEK`, `NOK`, `PLN`, `CZK`, `HUF`, `RON`, `ISK`, `RSD`, `MKD`, `MDL`, `UAH`, `TRY`, `BAM`, `ALL` (others on request).
+The supported currencies are listed in the spec's [Supported Currencies](https://github.com/pace/openfsc-spec/blob/master/1.0/openfsc-spec.md#416-supported-currencies) (4.1.6): `EUR`, `CHF`, `GBP`, `DKK`, `SEK`, `NOK`, `PLN`, `CZK`, `HUF`, `RON`, `ISK`, `RSD`, `MKD`, `MDL`, `UAH`, `TRY`, `BAM`, `ALL` (others on request).
 
-**Use one currency per site:** send the same `Currency` in all `PRICE`, `TRANSACTION` and `UNLOCKPUMP` messages of a site. The spec does not mandate this yet, but it is a strong recommendation and may become a requirement in a later spec version.
+**Use one currency per site:** send the same `Currency` in all `PRICE` and `TRANSACTION` messages of a site. The spec does not mandate this yet, but it is a strong recommendation and may become a requirement in a later spec version. (`UNLOCKPUMP` in Part 3 also carries a currency, but that one is set by the server.)
 
 The description is the last argument and, unlike all other arguments, may contain spaces. Everything after `PricePerUnit` is the description.
 
 ---
 
-## Step 7: Implement Proactive PRICE Notifications
+## Step 4: Send Price Changes
 
-Just as with pump statuses, your client should send a `PRICE` notification whenever a fuel price changes at your site, without waiting for the server to ask:
+Your client doesn't need to wait to be asked. Whenever a fuel price changes at your site, send a `PRICE` notification right away:
 
 ```
 * PRICE 0200 LTR EUR 1.249 Super 95
@@ -244,9 +180,157 @@ This way, customers who check the app before arriving at the site always see cur
 
 ---
 
+## Step 5: Implement PUMPS
+
+`PUMPS` is the server's way of asking for the current status of every pump at your site. The server typically sends it when a customer opens your site in the app.
+
+**Incoming request:**
+```
+S2 PUMPS
+```
+
+**Your response: one `PUMP` notification per pump, then `OK`:**
+```
+* PUMP 1 free
+* PUMP 2 out-of-order
+* PUMP 3 in-use
+* PUMP 4 ready-to-pay
+S2 OK
+```
+
+### Pump Statuses
+
+Pump numbers are integers from **1 to 99**.
+
+Your POS system must map its internal pump states to one of these values:
+
+| Status | Meaning |
+|---|---|
+| `free` | Pump is idle and available for use |
+| `in-use` | Customer is currently fueling |
+| `ready-to-pay` | Fueling complete, awaiting payment (Post-Pay) |
+| `locked` | Pump is locked, which is the default status in the Pre-Auth workflow (a customer can reserve it in the app to start fueling) |
+| `out-of-order` | Pump is not operational |
+
+Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
+
+> The spec also lists an `in-transaction` status, but it is deprecated. Do not implement or send it.
+
+The statuses a pump goes through depend on the flow. In Post-Pay, a pump rests in `free`:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> free
+    free --> in_use: customer starts fueling
+    in_use --> ready_to_pay: nozzle hung up
+    ready_to_pay --> free: paid in the app (CLEAR)<br/>or in the shop
+    in_use: in-use
+    ready_to_pay: ready-to-pay
+```
+
+In Pre-Auth, a pump rests in `locked` and is only `free` while it is unlocked for one customer:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> locked
+    locked --> free: server unlocks it (UNLOCKPUMP)
+    free --> in_use: customer starts fueling
+    free --> locked: canceled without fueling<br/>(LOCKPUMP or LOCKEDPUMP)
+    in_use --> locked: nozzle hung up,<br/>transaction reported
+    in_use: in-use
+```
+
+In both flows, a pump can switch to `out-of-order` at any time and back once it works again. Part 3 explains the transaction side of both flows.
+
+---
+
+## Step 6: Implement PUMPSTATUS and UpdateTTL
+
+`PUMPSTATUS` is the single-pump equivalent of `PUMPS`. The server uses it to ask about one specific pump, typically when a customer has selected it in the app.
+
+The pump argument is a pump number from 1 to 99.
+
+**Incoming request (basic):**
+```
+S3 PUMPSTATUS 3
+```
+
+**Your response:**
+```
+* PUMP 3 free
+S3 OK
+```
+
+Errors to handle:
+- If the pump number is unknown, reply with `ERR 404 Pump unknown` instead of `OK`.
+
+### The UpdateTTL Subscription
+
+`PUMPSTATUS` has an important optional second argument: `UpdateTTL` (time to live). It is a number of seconds. During this time, your client must **send a notification every time the status of that pump changes**.
+
+**Incoming request with TTL:**
+```
+S4 PUMPSTATUS 3 30
+```
+
+Your response works the same way: send the current status, then `OK`:
+```
+* PUMP 3 free
+S4 OK
+```
+
+But now, for (at least) the next 30 seconds, if pump 3 changes state, you must send a notification:
+```
+* PUMP 3 in-use
+* PUMP 3 ready-to-pay
+```
+
+These are notifications with the `*` tag that your client sends on its own. No `OK` is needed for them.
+
+```mermaid
+sequenceDiagram
+    participant Server as OpenFSC server
+    participant Client as OpenFSC client
+    Server->>Client: S4 PUMPSTATUS 3 30
+    Client-->>Server: * PUMP 3 free
+    Client-->>Server: S4 OK
+    rect rgba(120, 160, 220, 0.15)
+    Note over Server,Client: 30 seconds: every change of pump 3 is sent
+    Client-->>Server: * PUMP 3 in-use
+    Server->>Client: S5 PUMPSTATUS 3 30 (restarts the 30 seconds)
+    Client-->>Server: * PUMP 3 in-use
+    Client-->>Server: S5 OK
+    Client-->>Server: * PUMP 3 ready-to-pay
+    end
+```
+
+While the customer is on the fueling screen, the server may renew the request before the time runs out, as shown above.
+
+Implementation notes:
+- The valid TTL range is **30 to 300 seconds**. If the value is outside this range, reply with `ERR 416 UpdateTTL is too high or too low (valid range: 30 to 300, both inclusive)`.
+- A new `PUMPSTATUS` request for the same pump restarts the timer.
+- **Only send updates when the status actually changes.** Don't poll and send the same status repeatedly.
+- Several pumps can have an active `UpdateTTL` at the same time, so track the timer per pump.
+
+---
+
+## Step 7: Send Pump Status Changes
+
+As with prices, your client doesn't need to wait to be asked. Whenever a pump's status changes, send a `PUMP` notification, whether there is an active `UpdateTTL` or not:
+
+```
+* PUMP 3 in-use
+```
+
+This keeps the server's view of your forecourt up to date. The server uses this data to update what customers see in the app, so send these updates as soon as your POS detects the change.
+
+---
+
 ## Step 8: Update Your CAPABILITY Announcement
 
-Now that you're implementing pump, price, and product mapping methods, update the `CAPABILITY` notification you send during the handshake (Part 1, Step 3) to include the new method:
+Now that you're implementing pump, price, and product methods, update the `CAPABILITY` notification you send during the handshake (Part 1, Step 3) to include the new method:
 
 ```
 * CAPABILITY CLEAR HEARTBEAT PRICES PRODUCTS PUMPS PUMPSTATUS QUIT TRANSACTIONS
@@ -260,19 +344,20 @@ Remember that `CAPABILITY` lists the methods your client *handles*, i.e. the ser
 
 ## Common Mistakes to Avoid
 
-- **Sending `OK` before all notifications:** The server expects all `PUMP` or `PRICE` notifications to arrive before the `OK`. Sending `OK` early may cause the server to act on incomplete data.
-- **Forgetting the UpdateTTL timer:** If you acknowledge a `PUMPSTATUS` with a TTL but then never send proactive updates, the server will have a stale view of that pump during a customer's active session.
-- **Treating the TTL as the end of status updates:** The TTL only guarantees updates during its window. Proactive status changes (Step 4) are always sent, also before a `PUMPSTATUS` request arrives and after its TTL has elapsed.
+- **Sending `OK` before all notifications:** The server expects all `PRODUCT`, `PRICE` or `PUMP` notifications to arrive before the `OK`. Sending `OK` early may cause the server to act on incomplete data.
+- **Prices for products that weren't announced:** every ProductID in `PRICE` must have been announced with `PRODUCT`, otherwise the server can't categorize it or apply the right VAT rate.
+- **Forgetting the UpdateTTL timer:** If you acknowledge a `PUMPSTATUS` with a TTL but then never send status changes, the server will have an outdated view of that pump while the customer is fueling.
+- **Treating the TTL as the end of status updates:** The TTL only guarantees updates during its window. Status changes (Step 7) are always sent, also before a `PUMPSTATUS` request arrives and after its TTL has elapsed.
 - **Prices without VAT:** `PricePerUnit` in `PRICE` must always be the **end-user price including VAT**. Don't send the net price by mistake.
 
 ---
 
 ## Putting It Together: A Typical Exchange After Connecting
 
-Here is what the first few seconds after authentication typically look like:
+Here is what the first minutes after login typically look like (shortened to two products):
 
 ```
-→ Client authenticates (Part 1)
+→ Client logs in (Part 1)
 
 Server: S0 PRODUCTS
 Client: * PRODUCT 0100 ron98 19.0
@@ -284,6 +369,10 @@ Client: * PRICE 0100 LTR EUR 1.339 Super Plus
 Client: * PRICE 0200 LTR EUR 1.229 Super 95
 Client: S1 OK
 
+→ The price of Super 95 changes
+
+Client: * PRICE 0200 LTR EUR 1.249 Super 95
+
 → A customer opens the site in the app
 
 Server: S2 PUMPS
@@ -293,7 +382,8 @@ Client: * PUMP 3 free
 Client: * PUMP 4 ready-to-pay
 Client: S2 OK
 
-→ Customer selects pump 3 in the app
+→ Customer selects pump 3 in the app: the server checks the pump,
+  then asks for updates while the customer is on the fueling screen
 
 Server: S3 PUMPSTATUS 3
 Client: * PUMP 3 free
