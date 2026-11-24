@@ -1,7 +1,7 @@
-# OpenFSC Client Implementation Walkthrough
-## Overview: How Connected Fueling Works
+# OpenFSC Tutorial: From Zero to Hero
+## Overview: How Connected Fueling Works, or: The Origin Story
 
-This overview explains the big picture before you write any code: who is involved, what the customer does at the pump, and how the messages between your site and the OpenFSC server are structured. If you already know POS and forecourt systems but are new to OpenFSC, start here.
+This overview explains the big picture before you write any code: who is involved, what the customer does at the pump, and how the messages between your site and the OpenFSC server are structured. If you already know POS and forecourt systems but are new to OpenFSC, start here. Grab a coffee: this one has no code.
 
 In this overview:
 
@@ -19,7 +19,7 @@ Connected Fueling lets customers pay for fuel with a mobile app (or the infotain
 
 OpenFSC (short for Fueling Site Connect) is the protocol that connects your site to PACE's Connected Fueling platform. Through OpenFSC, your site reports products, prices, pump statuses and open transactions, and the platform tells your site when a transaction has been paid or when a pump should be unlocked.
 
-Payment itself is not part of OpenFSC. The platform handles the payment with the customer and the payment provider, and only tells your site the result.
+Payment itself is not part of OpenFSC. The platform handles the payment with the customer and the payment provider, and only tells your site the result. Your site does what it does best (fuel), and the platform takes care of the money.
 
 ---
 
@@ -64,7 +64,7 @@ The platform derives the process for each fueling from the pump status when the 
 
 ### Post-Pay: Fuel First, Then Pay in the App
 
-Post-Pay is the most common process in Germany. It works like paying at the shop counter, except that the customer pays in the app instead.
+Post-Pay is the most common process in Germany. It works like paying at the shop counter, except that the customer pays in the app instead. No queue, no chocolate bar next to the register.
 
 1. The customer arrives, opens the app and selects the pump.
 2. The customer fuels as usual.
@@ -121,7 +121,7 @@ Part 3 explains both processes in detail, including cancellations and error case
 
 ## How Messages Work
 
-OpenFSC is a plain-text protocol. Each message is one line of text, for example:
+OpenFSC is a plain-text protocol, so you can read it with your own eyes. You'll appreciate that the first time you debug it on a forecourt. Each message is one line of text, for example:
 
 ```
 S1 PUMPSTATUS 3
@@ -175,5 +175,7 @@ The `OK` tells the server that all the data has been sent. You will see this pat
 | **MOC** | Mineral oil company, i.e. the fuel brand that receives the site's reconciliation lists. |
 
 ---
+
+> <img src="../assets/mascot/next.svg" width="40" align="left" alt=""> **Next up:** Part 1 gets your client connected to the server. That's where the code starts.
 
 **Next:** [Part 1: Connection Handling](part-1.md)

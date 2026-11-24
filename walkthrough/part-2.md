@@ -1,7 +1,7 @@
-# OpenFSC Client Implementation Walkthrough
-## Part 2: Products, Prices & Pump Status
+# OpenFSC Tutorial: From Zero to Hero
+## Part 2: Products, Prices & Pump Status, or: Show Them What You've Got
 
-Once your client is connected and logged in (Part 1), the server asks for your products and prices right away. It asks for pump statuses later, whenever a customer needs them. This part covers how to answer these requests, how to send changes without being asked, and how `UpdateTTL` asks your client to send status updates for a limited time.
+Once your client is connected and logged in (Part 1), the server asks for your products and prices right away. It asks for pump statuses later, whenever a customer needs them. This part covers how to answer these requests, how to send changes without being asked, and how `UpdateTTL` asks your client to send status updates for a limited time. Think of it as setting up the shop window.
 
 In this part:
 
@@ -48,7 +48,7 @@ All requests in this part follow the pattern from the [Overview](overview.md#how
 
 ## Step 2: Announce Products with PRODUCTS / PRODUCT
 
-Before sending prices, you must tell the server which products you sell and what kind of fuel each one is, using the `PRODUCTS` / `PRODUCT` methods. This lets the server categorize your products correctly (e.g. as diesel, petrol, LPG), whatever your internal product IDs and names are. It also carries the **VAT rate** per product, which is needed for payment.
+Before sending prices, you must tell the server which products you sell and what kind of fuel each one is, using the `PRODUCTS` / `PRODUCT` methods. This lets the server categorize your products correctly (e.g. as diesel, petrol, LPG), whatever your internal product IDs and names are. It also carries the **VAT rate** per product, which is needed for payment. Your POS may know a product as article 4711; the app needs to know it's diesel.
 
 > Formally this is a protocol extension, but treat it as mandatory: it will become part of the standard requirements, and there is no other way to send VAT rates.
 
@@ -133,7 +133,7 @@ Your client doesn't need to wait to be asked. Whenever a fuel price changes at y
 * PRICE 0200 LTR EUR 1.249 Super 95
 ```
 
-This way, customers who check the app before arriving at the site always see current prices.
+This way, customers who check the app before arriving at the site always see current prices. Nobody likes a surprise at the pump.
 
 ---
 
@@ -227,7 +227,7 @@ Errors to handle:
 
 ### The UpdateTTL Subscription
 
-`PUMPSTATUS` has an important optional second argument: `UpdateTTL` (time to live). It is a number of seconds. During this time, your client must **send a notification every time the status of that pump changes**.
+`PUMPSTATUS` has an important optional second argument: `UpdateTTL` (time to live). It is a number of seconds. During this time, your client must **send a notification every time the status of that pump changes**. In plain words: "keep me posted on pump 3 for the next 30 seconds".
 
 **Incoming request with TTL:**
 ```
@@ -311,6 +311,8 @@ The server announces `PRODUCT` in its list, on top of the basic list from Part 1
 
 ## Checklist
 
+> <img src="../assets/mascot/recap.svg" width="40" align="left" alt=""> **Recap:** Products announced, prices sent, pumps reported, and every change pushed as it happens. The app can now show your site exactly as it is.
+
 - [ ] Answer `PRODUCTS` with one `PRODUCT` per product (category and VAT rate), then `OK`.
 - [ ] Answer `PRICES` with one `PRICE` per announced product (end-user price including VAT), then `OK`.
 - [ ] Use one currency for all prices and transactions of a site.
@@ -380,6 +382,6 @@ Client: * PUMP 3 ready-to-pay
 
 ## What's Next
 
-With products, prices and pump statuses handled, the server has everything it needs to show your site to customers. Part 3 covers the transaction flows for Post-Pay and Pre-Auth: how your client reports open transactions, and how the server tells it that a transaction has been paid.
+> <img src="../assets/mascot/next.svg" width="40" align="left" alt=""> **Next up:** With products, prices and pump statuses handled, the server has everything it needs to show your site to customers. Part 3 is where the money happens: how your client reports transactions for Post-Pay and Pre-Auth, and how the server tells it that a transaction has been paid.
 
 **Previous:** [Part 1: Connection Handling](part-1.md) · **Next:** [Part 3: Transactions](part-3.md)
