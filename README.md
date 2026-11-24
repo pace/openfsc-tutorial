@@ -33,6 +33,9 @@ Covers the two payment flows, Post-Pay and Pre-Auth: how to report transactions,
 ### [Part 4: Advanced Topics](walkthrough/part-4.md)
 Covers optional protocol extensions: Connection Multiplexing (connecting several sites over one connection) and Transaction Information (receiving card data for a payment). High Availability will be documented later.
 
+### [Part 5: Testing & Go-Live](walkthrough/part-5.md)
+Covers the way to production: developing against the sandbox, the acceptance test with PACE (remote and at a pilot station), go-live and support.
+
 ### [Reference](walkthrough/reference.md)
 Lookup tables: the complete `CAPABILITY` lists, all product categories, and all error codes per method.
 

@@ -315,6 +315,6 @@ Transaction Information (only if agreed with PACE):
 
 ## What's Next
 
-> <img src="../assets/mascot/next.svg" width="40" align="left" alt=""> **Next up:** That's it: you made it from zero to hero. The [Reference](reference.md) has the `CAPABILITY` lists, the product categories and all error codes in one place. Keep it close, you'll be back.
+> <img src="../assets/mascot/next.svg" width="40" align="left" alt=""> **Next up:** Your client is complete. Part 5 takes it from your desk to a real site: sandbox, acceptance test and go-live.
 
-**Previous:** [Part 3: Transactions](part-3.md) · **Next:** [Reference](reference.md)
+**Previous:** [Part 3: Transactions](part-3.md) · **Next:** [Part 5: Testing & Go-Live](part-5.md)
