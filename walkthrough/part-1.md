@@ -1,7 +1,9 @@
-# OpenFSC Client Implementation Walkthrough
-## Part 1: Connection Handling
+# OpenFSC Tutorial: From Zero to Hero
+## Part 1: Connection Handling, or: Making Friends with the Server
 
-This part takes you from opening the connection to the OpenFSC server to a stable, authenticated connection that answers heartbeats and reconnects on its own. If you are new to OpenFSC, read the [Overview](overview.md) first.
+This part takes you from opening the connection to the OpenFSC server to a stable, authenticated connection that answers heartbeats and reconnects on its own. It's the least glamorous part of the tutorial, and the one that decides whether everything else still works at 3 a.m. on a Sunday.
+
+If you are new to OpenFSC, read the [Overview](overview.md) first.
 
 In this part:
 
@@ -29,11 +31,13 @@ Before writing any code, make sure you have the following on hand:
 - **Server address and port**: the OpenFSC server hostname, and either port 443 (WSS/TLS) or the TCP port reachable through the VPN.
 - **Connection type**: secure WebSockets (WSS) or plain TCP through a VPN. This choice only affects how you open the connection. The protocol on top is the same for both, and that is what this walkthrough covers.
 
+Missing one of these? Now is a great moment to ask your PACE contact, before you've written a single line of code.
+
 ---
 
 ## Step 1: Open a TCP/WebSocket Connection
 
-Open a long-lived connection to the OpenFSC server. The protocol needs a connection that delivers all bytes in order, which both WSS and TCP do.
+Open a long-lived connection to the OpenFSC server. Long-lived as in days and weeks, ideally until someone unplugs the POS. The protocol needs a connection that delivers all bytes in order, which both WSS and TCP do.
 
 - If using **WSS**: connect to `wss://<server>:443`. Handle TLS negotiation via your WebSocket library.
 - If using **TCP over VPN**: open a raw TCP socket to the server's address and port.
@@ -59,13 +63,14 @@ Key rules:
 - The **method** is an uppercase alphanumeric word like `CAPABILITY`, `PUMPS`, etc.
 - The default encoding is **ASCII**. You can switch to another encoding (e.g. UTF-8) during the handshake using `CHARSET`, but for a first implementation ASCII is fine.
 
-Get your message parser right before anything else. A simple approach is a line reader that collects incoming bytes and hands over a complete message each time it finds `\r\n`.
+> <img src="../assets/mascot/tip.svg" width="40" align="left" alt=""> **Tip:** Get your message parser right before anything else. A simple approach is a line reader that collects incoming bytes and hands over a complete message each time it finds `\r\n`.
+> Many "the server ignores my messages" mysteries end with a missing `\r`.
 
 ---
 
 ## Step 3: Handle the CAPABILITY Exchange
 
-Immediately after the connection is open, **both sides send a `CAPABILITY` notification simultaneously**, without waiting for the other. This is always the very first message from each party.
+Immediately after the connection is open, **both sides send a `CAPABILITY` notification simultaneously**, without waiting for the other. This is always the very first message from each party. Both sides talking at the same time would be rude at a dinner party, but in OpenFSC it's perfectly fine.
 
 **What to send:**
 
@@ -114,7 +119,7 @@ If the encoding is not supported, the server replies with:
 C0 ERR 404 Unknown encoding
 ```
 
-If you stick to ASCII-only content, you can skip this step entirely for now.
+If your product names are plain ASCII, skip this step for now. "Super Müller Diesel" can wait.
 
 ---
 
@@ -144,7 +149,7 @@ If authentication fails:
 C1 ERR 401 SiteAccessKey and/or secret are not valid
 ```
 
-In this case, check your credentials. Retrying with wrong credentials won't help: report the error and wait until an operator fixes the credentials.
+In this case, check your credentials. Retrying with wrong credentials won't help: the server is very consistent about this. Report the error and wait until an operator fixes the credentials.
 
 ### The Handshake at a Glance
 
@@ -179,7 +184,7 @@ sequenceDiagram
 
 ## Step 6: Implement a Tag Manager
 
-Before going further, you need a reliable way to match requests and responses. Both sides can send requests at any time, so the server's requests and responses to your own requests can arrive mixed together.
+Before going further, you need a reliable way to match requests and responses. Think of it as the cloakroom of your client: every request gets a ticket, and every answer has to find its coat. Both sides can send requests at any time, so the server's requests and responses to your own requests can arrive mixed together.
 
 A simple tag manager should:
 
@@ -193,7 +198,7 @@ Keep client-originated tags and server-originated tags separate to avoid collisi
 
 ## Step 7: Implement HEARTBEAT / BEAT
 
-The server sends a `HEARTBEAT` request when it hasn't heard from your client for a while (by default about a minute, see Step 10). **You must respond within 20 seconds**, or the server will consider the connection unstable. By default, the server closes the connection with a `QUIT` after 3 unanswered heartbeats.
+A `HEARTBEAT` is the server's way of asking "still there?". It sends one when it hasn't heard from your client for a while (by default about a minute, see Step 10). **You must respond within 20 seconds**, or the server will consider the connection unstable. By default, the server closes the connection with a `QUIT` after 3 unanswered heartbeats.
 
 An incoming heartbeat looks like:
 ```
@@ -251,7 +256,7 @@ Your client may also send `QUIT` before intentionally disconnecting:
 * QUIT bye bye
 ```
 
-This is optional (you may also just close the socket), but it is good practice.
+Saying goodbye is optional (you may also just close the socket), but it's good manners.
 
 ---
 
@@ -268,7 +273,7 @@ During development (and in production), you may receive methods you don't yet ha
 
 ## Step 10: Reconnect Robustly
 
-The connection to the OpenFSC server should stay up all the time, so your client is always either connected or trying to reconnect. Getting this loop right matters as much as any single method.
+The connection to the OpenFSC server should stay up all the time, so your client is always either connected or trying to reconnect. Networks fail, VPN tunnels get rebuilt, and somebody always restarts the router "just quickly". Getting this loop right matters as much as any single method.
 
 ### When to Reconnect
 
@@ -370,6 +375,8 @@ stateDiagram-v2
 
 ## Checklist
 
+> <img src="../assets/mascot/recap.svg" width="40" align="left" alt=""> **Recap:** Connected, logged in, answering heartbeats and back on its feet after every disconnect. That's the foundation, and everything in Parts 2 to 4 sits on top of it.
+
 - [ ] Open a WSS (port 443) or TCP-over-VPN connection and parse messages up to `\r\n`.
 - [ ] Send your `CAPABILITY` first, and store the server's list.
 - [ ] Use `CHARSET` only if needed, with `WINDOWS-1252`, `ISO-8859-1` or `UTF-8`, before `PLAINAUTH`.
@@ -385,6 +392,6 @@ stateDiagram-v2
 
 ## What's Next
 
-With a stable, authenticated connection in place, Part 2 covers **products, prices and pump statuses**. Products and prices are the first things the server asks for after you log in.
+> <img src="../assets/mascot/next.svg" width="40" align="left" alt=""> **Next up:** Part 2 covers **products, prices and pump statuses**. Products and prices are the first things the server asks for after you log in, so it's time to show the server what your site has got.
 
 **Previous:** [Overview](overview.md) · **Next:** [Part 2: Products, Prices & Pump Status](part-2.md)
