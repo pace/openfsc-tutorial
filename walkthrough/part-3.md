@@ -69,7 +69,7 @@ The `TRANSACTION` notification carries a lot of fields. Here is a breakdown:
 | arg1 | SiteTransactionID | `c71b9838ad3dfc15` | Your POS-defined transaction ID (Post-Pay), or the FSCTransactionID provided by UNLOCKPUMP (Pre-Auth) |
 | arg2 | Status | `open` | Always `open` |
 | arg3 | ProductID | `0100` | Fuel product identifier |
-| arg4 | Currency | `EUR` | One of the supported currencies (see Part 2, Step 6) |
+| arg4 | Currency | `EUR` | One of the supported currencies (see Part 2, Step 3) |
 | arg5 | PriceWithVAT | `86.83` | Total price including VAT |
 | arg6 | PriceWithoutVAT | `72.97` | Total price excluding VAT |
 | arg7 | VATRate | `19.0` | VAT percentage |
@@ -154,7 +154,7 @@ Arguments you need to handle:
 | Argument | Example | Notes |
 |---|---|---|
 | Pump | `3` | Pump to unlock |
-| Currency | `EUR` | Currency of the credit, one of the supported currencies (see Part 2, Step 6) |
+| Currency | `EUR` | Currency of the credit, one of the supported currencies (see Part 2, Step 3) |
 | Credit | `100.00` | Maximum authorized amount |
 | FSCTransactionID | `e2f74ef5-...` | Transaction ID assigned by the server. Store it, you'll need it later |
 | PaymentMethod | `pace` | Payment method in use |
@@ -436,4 +436,4 @@ Client: * PUMP 3 locked
 
 You now have everything you need to build a complete OpenFSC client for Post-Pay and Pre-Auth. Part 4 covers optional extensions: Connection Multiplexing and Transaction Information. High Availability will be documented later.
 
-**Previous:** [Part 2: Pump Status & Prices](part-2.md) · **Next:** [Part 4: Advanced Topics](part-4.md)
+**Previous:** [Part 2: Products, Prices & Pump Status](part-2.md) · **Next:** [Part 4: Advanced Topics](part-4.md)
