@@ -8,7 +8,7 @@ This walkthrough shows developers how to build an OpenFSC client: the software t
 
 It is written for engineers who know POS and forecourt systems but are new to OpenFSC. Each part builds on the previous one, so read them in order.
 
-For the full protocol specification, see the [OpenFSC Protocol Specification (Version 1.0)](https://github.com/pace/openfsc-spec/blob/main/1.0/openfsc-spec.md).
+For the full protocol specification, see the [OpenFSC Protocol Specification (Version 1.0)](https://github.com/pace/openfsc-spec/blob/master/1.0/openfsc-spec.md).
 
 ---
 
@@ -20,7 +20,7 @@ Explains the parties involved, what the customer does in Post-Pay and Pre-Auth, 
 ### [Part 1: Connection Handling](walkthrough/part-1.md)
 Covers everything you need for a stable, authenticated connection to the OpenFSC server: the handshake, authentication, heartbeats and reconnecting.
 
-### [Part 2: Pump Status & Prices](walkthrough/part-2.md)
+### [Part 2: Products, Prices & Pump Status](walkthrough/part-2.md)
 Covers announcing products with `PRODUCTS` / `PRODUCT`, reporting fuel prices and pump statuses, and sending status updates for a limited time via `UpdateTTL`.
 
 ### [Part 3: Transactions](walkthrough/part-3.md)

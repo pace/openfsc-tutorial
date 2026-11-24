@@ -259,8 +259,8 @@ When a connection ends, discard everything that belonged to it:
 
 Once you're authenticated again, the server asks for the current state of your site. Your client only needs to answer these requests as described in Parts 2 and 3:
 
-1. `PRODUCTS`, if your client announced it (Part 2, Step 5).
-2. `PRICES` (Part 2, Step 6).
+1. `PRODUCTS`, if your client announced it (Part 2, Step 2).
+2. `PRICES` (Part 2, Step 3).
 3. A retried `CLEAR` for any transaction whose clearing was interrupted by the disconnect (Part 3, "Handling CLEAR After Reconnection").
 4. `TRANSACTIONS` (Part 3, Step 2).
 
@@ -305,4 +305,4 @@ Here is the complete lifecycle of a connection:
 
 With a stable, authenticated connection in place, Part 2 covers **products, prices and pump statuses**. Products and prices are the first things the server asks for after you log in.
 
-**Previous:** [Overview](overview.md) · **Next:** [Part 2: Pump Status & Prices](part-2.md)
+**Previous:** [Overview](overview.md) · **Next:** [Part 2: Products, Prices & Pump Status](part-2.md)
