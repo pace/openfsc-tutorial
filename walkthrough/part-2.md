@@ -13,6 +13,7 @@ In this part:
 - [Step 6: Implement PUMPSTATUS and UpdateTTL](#step-6-implement-pumpstatus-and-updatettl)
 - [Step 7: Send Pump Status Changes](#step-7-send-pump-status-changes)
 - [Step 8: Update Your CAPABILITY Announcement](#step-8-update-your-capability-announcement)
+- [Checklist](#checklist)
 
 The steps follow the order in which the server uses these methods:
 
@@ -349,6 +350,21 @@ Remember that `CAPABILITY` lists the methods your client *handles*, i.e. the ser
 - **Forgetting the UpdateTTL timer:** If you acknowledge a `PUMPSTATUS` with a TTL but then never send status changes, the server will have an outdated view of that pump while the customer is fueling.
 - **Treating the TTL as the end of status updates:** The TTL only guarantees updates during its window. Status changes (Step 7) are always sent, also before a `PUMPSTATUS` request arrives and after its TTL has elapsed.
 - **Prices without VAT:** `PricePerUnit` in `PRICE` must always be the **end-user price including VAT**. Don't send the net price by mistake.
+
+---
+
+## Checklist
+
+- [ ] Answer `PRODUCTS` with one `PRODUCT` per product (category and VAT rate), then `OK`.
+- [ ] Answer `PRICES` with one `PRICE` per announced product (end-user price including VAT), then `OK`.
+- [ ] Use one currency for all prices and transactions of a site.
+- [ ] Send a `PRICE` notification as soon as a price changes.
+- [ ] Map your POS pump states to `free`, `in-use`, `ready-to-pay`, `locked` and `out-of-order`; never send `in-transaction`.
+- [ ] Answer `PUMPS` with one `PUMP` per pump, then `OK`.
+- [ ] Answer `PUMPSTATUS` with exactly one `PUMP` for that pump, then `OK`; `ERR 404` for unknown pumps.
+- [ ] Accept `UpdateTTL` from 30 to 300 seconds (`ERR 416` otherwise), track it per pump and restart it on a new request.
+- [ ] Send a `PUMP` notification on every status change, with or without `UpdateTTL`.
+- [ ] Add `PRODUCTS` to your `CAPABILITY`.
 
 ---
 
