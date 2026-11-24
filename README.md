@@ -2,11 +2,15 @@
 
 ---
 
-# OpenFSC Client Implementation Walkthrough
+# OpenFSC Tutorial: From Zero to Hero
+
+<img src="assets/mascot/title.svg" width="180" align="right" alt="">
 
 This walkthrough shows developers how to build an OpenFSC client: the software that connects a site's POS system to PACE's OpenFSC server, so that customers can pay for fuel in an app while staying at the pump (Connected Fueling).
 
-It is written for engineers who know POS and forecourt systems but are new to OpenFSC. Each part builds on the previous one, so read them in order.
+It is written for engineers who know POS and forecourt systems but are new to OpenFSC. Each part builds on the previous one, so read them in order. By the end you'll have a client that connects, reports, gets paid and survives the occasional network hiccup.
+
+<br clear="right">
 
 For the full protocol specification, see the [OpenFSC Protocol Specification (Version 1.0)](https://github.com/pace/openfsc-spec/blob/master/1.0/openfsc-spec.md).
 
