@@ -3,23 +3,49 @@
 
 This part is about turning fuelings into payments. It covers how your client reports transactions, how the server tells it that a transaction has been paid, and the two flows your client can support: **Post-Pay** and **Pre-Auth**.
 
+In this part:
+
+- [Step 1: Understand the Transaction Lifecycle](#step-1-understand-the-transaction-lifecycle)
+- [Step 2: Implement TRANSACTIONS](#step-2-implement-transactions)
+- [Step 3: Understand the TRANSACTION Notification Arguments](#step-3-understand-the-transaction-notification-arguments)
+- [Step 4: The Post-Pay Flow](#step-4-the-post-pay-flow)
+- [Step 5: The Pre-Auth Flow](#step-5-the-pre-auth-flow)
+- [Step 6: Implement CLEAR](#step-6-implement-clear)
+- [Step 7: Update Your CAPABILITY Announcement](#step-7-update-your-capability-announcement)
+
 ---
 
-## Step 1: Understand Transaction Lifecycle
+## Step 1: Understand the Transaction Lifecycle
 
-A transaction is always `open` from the moment fuel is dispensed until either:
-- The server sends a `CLEAR` (payment succeeded via OpenFSC), or
+A transaction starts when the customer has finished fueling: in Post-Pay when the pump reaches `ready-to-pay`, in Pre-Auth when the pump returns to `locked`. From then on it is `open` until either:
+- The server sends a `CLEAR` (paid via Connected Fueling), or
 - The customer pays in the shop. In this case the transaction disappears from your POS and is no longer reported.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> open: fueling finished,<br/>client sends TRANSACTION
+    open --> cleared: server sends CLEAR,<br/>client replies OK
+    open --> paid_in_shop: customer pays<br/>in the shop
+    cleared --> [*]
+    paid_in_shop --> [*]
+    paid_in_shop: paid in the shop
+```
+
+Only `open` transactions are reported to the server. Cleared transactions and transactions paid in the shop are no longer reported, but your client must still know them for a while (see "Handling CLEAR After Reconnection" in Step 6).
 
 > The spec also defines a `deferred` transaction status, meant for cases where an operator manually releases a pump with an unpaid transaction. It is not used in practice, so do not implement it.
 
-> **Important:** Only send a `TRANSACTION` notification if fuel was actually dispensed (non-zero volume). A fueling with zero volume is not a transaction but a cancellation, which the Pre-Auth flow handles differently.
+> **Important:** Only send a `TRANSACTION` notification if fuel was actually dispensed (non-zero volume). A fueling with zero volume is not a transaction. In Post-Pay, the pump simply returns to `free`. In Pre-Auth, your client cancels the session with `LOCKEDPUMP` (Step 5).
 
 ---
 
 ## Step 2: Implement TRANSACTIONS
 
-`TRANSACTIONS` works exactly like `PUMPS` and `PRICES` from Part 2: one request, answered with one notification per item. The server uses it to fetch all open transactions, for example right after your client logs in, to catch up on anything still unpaid.
+`TRANSACTIONS` works exactly like `PUMPS` and `PRICES` from Part 2: one request, answered with one notification per item. The server uses it in two situations:
+
+- **Right after your client logs in**, to catch up on all transactions that are still unpaid.
+- **When a pump reaches `ready-to-pay` in Post-Pay**, to show the customer the bill in the app. In this case it asks for that one pump (see below).
 
 **Incoming request (all pumps):**
 ```
@@ -90,15 +116,25 @@ Post-Pay is the most common flow in Germany. The customer fuels first and pays a
 
 ### Flow Overview
 
-```
-Pump status: free
-  ↓ customer starts fueling
-Pump status: in-use
-  ↓ customer finishes fueling
-Pump status: ready-to-pay
-  ↓ client sends TRANSACTION (open)
-  ↓ server sends CLEAR
-Pump status: free
+```mermaid
+sequenceDiagram
+    actor C as Customer (app)
+    participant Server as OpenFSC server
+    participant Client as OpenFSC client
+    C->>Server: selects pump 3
+    Server->>Client: PUMPSTATUS 3 30
+    Client-->>Server: PUMP 3 free, OK
+    Note over C,Client: customer fuels
+    Client-->>Server: PUMP 3 in-use
+    Client-->>Server: PUMP 3 ready-to-pay
+    Client-->>Server: TRANSACTION 3 c71b9838ad3dfc15 open …
+    Server->>Client: TRANSACTIONS 3
+    Client-->>Server: TRANSACTION 3 c71b9838ad3dfc15 open …, OK
+    Server->>C: shows the bill
+    C->>Server: pays
+    Server->>Client: CLEAR 3 c71b9838ad3dfc15 5b0e4c2a-… pace
+    Client-->>Server: OK
+    Client-->>Server: PUMP 3 free
 ```
 
 ### Your Responsibilities
@@ -114,11 +150,21 @@ Proactively send a `PUMP` status notification (Part 2), and a `TRANSACTION` noti
 
 **2. Keep reporting the transaction:**
 
-If the server sends `TRANSACTIONS` (e.g. after a reconnect), include all currently open transactions in your response, including this one.
+When the server sends `TRANSACTIONS` (to show the bill, or after a reconnect), include all currently open transactions in your response, including this one.
 
 **3. When the server sends `CLEAR`:**
 
 See Step 6 below.
+
+### Where the FSCTransactionID Comes From
+
+In Post-Pay, the server creates its own transaction ID (the **FSCTransactionID**, a UUID) when the customer pays. Your client sees it for the first time in the `CLEAR` request, next to your own SiteTransactionID:
+
+```
+S5 CLEAR 3 c71b9838ad3dfc15 5b0e4c2a-9d1f-4e8b-a6c3-2f7d1e9b8a04 pace
+```
+
+Store it together with the transaction. You need it to recognize a retried `CLEAR` after a reconnect (Step 6). If your client receives `TRANSACTIONINFO` (Part 4), the same FSCTransactionID appears there just before the `CLEAR`.
 
 ---
 
@@ -128,18 +174,37 @@ Pre-Auth is common outside Germany and at unmanned sites. The customer authorize
 
 ### Flow Overview
 
+A Pre-Auth pump rests in `locked`. It is only `free` while it is unlocked for one customer. After fueling it returns to `locked` (not `ready-to-pay`), and stays `locked` after the `CLEAR`.
+
+```mermaid
+sequenceDiagram
+    actor C as Customer (app)
+    participant Server as OpenFSC server
+    participant Client as OpenFSC client
+    C->>Server: selects pump 3, authorizes up to 100.00 EUR
+    Server->>Client: UNLOCKPUMP 3 EUR 100.00 e2f74ef5-… pace
+    Client-->>Server: OK
+    Client-->>Server: PUMP 3 free
+    alt customer fuels
+        Client-->>Server: PUMP 3 in-use
+        Client-->>Server: PUMP 3 locked
+        Client-->>Server: TRANSACTION 3 e2f74ef5-… open …
+        Server->>C: charges the actual amount
+        Server->>Client: CLEAR 3 e2f74ef5-… e2f74ef5-… pace
+        Client-->>Server: OK
+        Client-->>Server: PUMP 3 locked
+    else server cancels before fueling
+        Server->>Client: LOCKPUMP 3
+        Client-->>Server: OK
+        Client-->>Server: PUMP 3 locked
+    else site cancels without fueling (e.g. timeout)
+        Client->>Server: LOCKEDPUMP 3 e2f74ef5-… timeout
+        Server-->>Client: OK
+        Client-->>Server: PUMP 3 locked
+    end
 ```
-Pump status: locked  ← idle state of a Pre-Auth pump
-  ↓ server sends UNLOCKPUMP
-Pump status: free  ← pump is now open for this specific customer to fuel
-  ↓ customer starts fueling
-Pump status: in-use
-  ↓ customer finishes fueling
-Pump status: locked  ← session still active, awaiting CLEAR (not ready-to-pay)
-  ↓ client sends TRANSACTION (open, using FSCTransactionID)
-  ↓ server sends CLEAR
-Pump status: locked  ← back to pre-auth idle, available for the next mobile reservation / next Pre-Auth session
-```
+
+Note that the FSCTransactionID (`e2f74ef5-…`) comes from `UNLOCKPUMP` and is then used everywhere: as SiteTransactionID in `TRANSACTION`, in `LOCKEDPUMP` and twice in `CLEAR`.
 
 ### Handling UNLOCKPUMP
 
@@ -268,9 +333,14 @@ Or the server returns one of these errors:
 
 With `CLEAR`, the server tells your client that a transaction has been paid, so your client marks it as paid and releases the pump. `CLEAR` is used in both flows. Afterward, Post-Pay pumps return to `free` and Pre-Auth pumps return to `locked` (their idle state).
 
-**Incoming request:**
+**Incoming request (Post-Pay example):**
 ```
-S5 CLEAR 3 c71b9838ad3dfc15 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
+S5 CLEAR 3 c71b9838ad3dfc15 5b0e4c2a-9d1f-4e8b-a6c3-2f7d1e9b8a04 pace
+```
+
+In Pre-Auth, SiteTransactionID and FSCTransactionID are the same, because your client reports the FSCTransactionID from `UNLOCKPUMP`:
+```
+S5 CLEAR 3 e2f74ef5-f427-4ae6-bdd3-70a96709992f e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 ```
 
 Arguments:
@@ -279,11 +349,11 @@ Arguments:
 |---|---|---|
 | Pump | `3` | Pump number |
 | SiteTransactionID | `c71b9838ad3dfc15` | The transaction ID as reported by your client |
-| FSCTransactionID | `e2f74ef5-...` | The server-side transaction ID |
+| FSCTransactionID | `5b0e4c2a-...` | The server's transaction ID. Store it with the transaction |
 | PaymentMethod | `pace` | Payment method used |
 
 **On success:**
-1. Mark the transaction as cleared in your POS.
+1. Mark the transaction as cleared in your POS, and store the FSCTransactionID with it.
 2. Reply `OK`.
 3. Send a pump status update. The status to report depends on the flow:
    - **Post-Pay:** return the pump to `free`. It is now available for any customer.
@@ -316,6 +386,20 @@ This is one of the harder edge cases. If the connection drops while your client 
 - **Transaction is already cleared:** Return `ERR 410`. The server then knows the payment went through.
 - **Transaction is unknown (cleared too long ago):** Return `ERR 404`. This starts a manual back-office process.
 - **Transaction was paid in the shop:** Return `ERR 403`. The server then cancels its payment.
+
+```mermaid
+flowchart TD
+    start["CLEAR arrives<br/>(first or retried)"] --> known{"Transaction known<br/>(pump + SiteTransactionID)?"}
+    known -- no --> e404["ERR 404<br/>server starts back-office process"]
+    known -- yes --> pm{"PaymentMethod<br/>permitted?"}
+    pm -- no --> e403a["ERR 403"]
+    pm -- yes --> state{"Transaction state?"}
+    state -- open --> ok["Clear it, reply OK,<br/>send PUMP status"]
+    state -- "cleared by OpenFSC<br/>(same FSCTransactionID)" --> e410["ERR 410<br/>server: payment confirmed"]
+    state -- paid in the shop --> e403b["ERR 403<br/>server cancels its payment"]
+```
+
+A 404 starts an expensive manual process, so keep cleared and shop-paid transactions (with their FSCTransactionID) in your POS for a while, e.g. 24 hours, so you can still answer a retried `CLEAR` with 410 or 403.
 
 Build this logic into your `CLEAR` handler from the start.
 
@@ -370,13 +454,15 @@ Client: S3 OK
 Client: * PUMP 3 ready-to-pay
 Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 
-Server: S4 TRANSACTIONS
+→ The app asks for the bill of pump 3
+
+Server: S4 TRANSACTIONS 3
 Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 Client: S4 OK
 
 → Customer pays via app
 
-Server: S5 CLEAR 3 c71b9838ad3dfc15 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
+Server: S5 CLEAR 3 c71b9838ad3dfc15 5b0e4c2a-9d1f-4e8b-a6c3-2f7d1e9b8a04 pace
 Client: S5 OK
 Client: * PUMP 3 free
 ```
@@ -409,7 +495,7 @@ Client: * PUMP 3 locked
 
 ---
 
-→ Alternative: Customer walks away without fueling
+→ Alternative: customer walks away without fueling, the site cancels the session
 
 Server: S1 UNLOCKPUMP 3 EUR 100.00 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
 Client: S1 OK

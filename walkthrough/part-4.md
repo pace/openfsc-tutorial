@@ -193,15 +193,15 @@ The server sends the info notifications after the transaction is reported, and b
 ```
 → Pump reaches ready-to-pay, client sends TRANSACTION
 
-Server: S4 TRANSACTIONS
+Server: S4 TRANSACTIONS 3
 Client: * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 Client: S4 OK
 
-Server: * TRANSACTIONINFO e2f74ef5-f427-4ae6-bdd3-70a96709992f PAN 92873498723498792384
-Server: * TRANSACTIONINFO e2f74ef5-f427-4ae6-bdd3-70a96709992f ApprovalCode 643972
-Server: * TRANSACTIONINFO e2f74ef5-f427-4ae6-bdd3-70a96709992f Mileage 176439
+Server: * TRANSACTIONINFO 5b0e4c2a-9d1f-4e8b-a6c3-2f7d1e9b8a04 PAN 92873498723498792384
+Server: * TRANSACTIONINFO 5b0e4c2a-9d1f-4e8b-a6c3-2f7d1e9b8a04 ApprovalCode 643972
+Server: * TRANSACTIONINFO 5b0e4c2a-9d1f-4e8b-a6c3-2f7d1e9b8a04 Mileage 176439
 
-Server: S5 CLEAR 3 c71b9838ad3dfc15 e2f74ef5-f427-4ae6-bdd3-70a96709992f pace
+Server: S5 CLEAR 3 c71b9838ad3dfc15 5b0e4c2a-9d1f-4e8b-a6c3-2f7d1e9b8a04 pace
 Client: S5 OK
 Client: * PUMP 3 free
 ```
