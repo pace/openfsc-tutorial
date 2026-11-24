@@ -65,7 +65,7 @@ Do **not** use `careDiesel` or `syntheticDiesel`. They are deprecated: use `dies
 
 ## Error Codes
 
-An error always concludes a request and uses the request's tag:
+Errors happen. Here's how to read them. An error always concludes a request and uses the request's tag:
 
 ```
 <tag> ERR <code> <message>

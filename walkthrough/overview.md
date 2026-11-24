@@ -25,6 +25,8 @@ Payment itself is not part of OpenFSC. The platform handles the payment with the
 
 ## The Parties
 
+Four parties, one goal: a customer who fuels and pays without reaching for a wallet.
+
 | Party | Role |
 |---|---|
 | **Customer** | Uses an app (for example PACE Drive, a fleet card provider's app, or an in-car system) to select a pump and pay. |
@@ -58,13 +60,13 @@ Once the connection is open, both sides can send messages at any time. Most of t
 
 ## Post-Pay and Pre-Auth from the Customer's Point of View
 
-OpenFSC supports the two payment processes you already know from the forecourt. Your site may support one or both.
+OpenFSC supports the two payment processes you already know from the forecourt. Your site may support one or both. Same pump, same fuel, just a different order of "fuel" and "pay".
 
 The platform derives the process for each fueling from the pump status when the customer selects the pump: a `locked` pump starts the Pre-Auth process, a `free` pump the Post-Pay process. So reporting the right idle status (Part 2) is what decides the process.
 
 ### Post-Pay: Fuel First, Then Pay in the App
 
-Post-Pay is the most common process in Germany. It works like paying at the shop counter, except that the customer pays in the app instead. No queue, no chocolate bar next to the register.
+Post-Pay is the most common process in Germany. It works like paying at the shop counter, except that the customer pays in the app instead. No waiting in line, no chocolate bar at the register (your waistline says thanks). The shop wins as well: shorter lines for everyone who comes in on purpose, for a coffee, a sandwich, or yes, that chocolate bar.
 
 1. The customer arrives, opens the app and selects the pump.
 2. The customer fuels as usual.
@@ -91,7 +93,7 @@ sequenceDiagram
 
 ### Pre-Auth: Authorize First, Then Fuel
 
-Pre-Auth is common outside Germany and at unmanned stations. It works like an outdoor payment terminal: the amount is reserved before the pump is released.
+Pre-Auth is common outside Germany and at unmanned stations. It works like an outdoor payment terminal: the amount is reserved before the pump is released. Same idea as a hotel reserving an amount on your card at check-in, just a lot faster.
 
 1. The customer selects the pump in the app and authorizes a maximum amount.
 2. The platform asks the site to unlock the pump for that customer.
@@ -157,6 +159,8 @@ The `OK` tells the server that all the data has been sent. You will see this pat
 ---
 
 ## Glossary
+
+Bookmark this one. You'll meet these terms again in every part.
 
 | Term | Meaning |
 |---|---|

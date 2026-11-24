@@ -45,7 +45,7 @@ Better to find it here than on a Saturday morning at a busy site.
 
 ## Step 2: Run the Acceptance Test
 
-Before go-live, you and PACE run through the real-world scenarios together. This happens in two rounds: first remotely against a test site, then at a pilot station with real fuelings.
+Before go-live, you and PACE run through the real-world scenarios together. No pressure: we've done this many times, and we want the same thing you do. This happens in two rounds: first remotely against a test site, then at a pilot station with real fuelings.
 
 A typical set of scenarios:
 
@@ -65,7 +65,7 @@ A typical set of scenarios:
 
 ## Step 3: Go Live
 
-After a successful acceptance test, you agree on the go-live date with PACE and receive the production credentials. Each site gets its own SiteAccessKey and Secret, so keep them per site in your configuration, never shared between sites.
+This is the fun part. After a successful acceptance test, you agree on the go-live date with PACE and receive the production credentials. Each site gets its own SiteAccessKey and Secret, so keep them per site in your configuration, never shared between sites.
 
 The production server address differs from the sandbox. Make it configurable rather than hard-coded.
 
@@ -73,7 +73,7 @@ The production server address differs from the sandbox. Make it configurable rat
 
 ## After Go-Live
 
-For questions and incidents, reach out to your PACE contact. For a quick answer, include:
+For questions and incidents, reach out to your PACE contact. We're happy to help, and even happier with a good log excerpt. For a quick answer, include:
 
 - the site and pump,
 - the time (with time zone),
