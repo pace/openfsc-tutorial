@@ -33,6 +33,8 @@ stateDiagram-v2
     paid_in_shop: paid in the shop
 ```
 
+**One open transaction per pump.** A pump never has more than one open transaction. Connected Fueling does not support stacked sales: don't release a pump for the next customer while the previous transaction on it is still open. Many forecourt controllers allow stacking (often two unpaid sales per pump), so make sure it is disabled for pumps used with Connected Fueling.
+
 Only `open` transactions are reported to the server. Cleared transactions and transactions paid in the shop are no longer reported, but your client must still know them for a while (see "Handling CLEAR After Reconnection" in Step 6).
 
 > The spec also defines a `deferred` transaction status, meant for cases where an operator manually releases a pump with an unpaid transaction. It is not used in practice, so do not implement it.
@@ -149,11 +151,15 @@ Proactively send a `PUMP` status notification (Part 2), and a `TRANSACTION` noti
 * TRANSACTION 3 c71b9838ad3dfc15 open 0100 EUR 86.83 72.97 19.0 13.86 LTR 64.85 1.339
 ```
 
-**2. Keep reporting the transaction:**
+**2. Keep the pump blocked until the transaction is settled:**
+
+The pump stays `ready-to-pay` until the server sends `CLEAR` or the customer pays in the shop. Don't release it for the next customer before that (no stacked sales, see Step 1).
+
+**3. Keep reporting the transaction:**
 
 When the server sends `TRANSACTIONS` (to show the bill, or after a reconnect), include all currently open transactions in your response, including this one.
 
-**3. When the server sends `CLEAR`:**
+**4. When the server sends `CLEAR`:**
 
 See Step 6 below.
 
@@ -512,6 +518,7 @@ Client: * PUMP 3 locked
 ## Common Mistakes to Avoid
 
 - **Using your own SiteTransactionID in Pre-Auth:** In Pre-Auth, the `SiteTransactionID` in your `TRANSACTION` notification must be the `FSCTransactionID` from `UNLOCKPUMP`. With a different ID, the server can't link the authorized amount to the transaction.
+- **Stacking sales:** Releasing a pump for the next customer while its transaction is still open leads to two open transactions on one pump. This is not allowed, and the OpenFSC validator fails it.
 - **Sending TRANSACTION for zero-volume fuelings:** If no fuel was dispensed, use `LOCKEDPUMP` instead.
 - **Not handling the CLEAR retry after reconnect:** Implement all four `CLEAR` response cases (normal, 404, 403, 410) from day one.
 - **Forgetting reconciliation marking:** Transactions cleared via OpenFSC must be flagged as such in your reconciliation lists. This is a requirement, not an option.

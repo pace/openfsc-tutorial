@@ -215,6 +215,8 @@ Your POS system must map its internal pump states to one of these values:
 
 Think carefully about how each state in your POS maps to these. The most critical ones to get right are `ready-to-pay` (triggers payment flow in Post-Pay) and `locked` (indicates a Pre-Auth workflow).
 
+The idle status also decides which process the app starts. When a customer selects a pump, the app looks at its status: a `locked` pump starts Pre-Auth (the app asks the customer to authorize an amount), a `free` pump starts Post-Pay (the app shows `free` or `in-use` and waits for `ready-to-pay`). So a Pre-Auth pump must report `locked` and a Post-Pay pump `free` whenever it is idle.
+
 > The spec also lists an `in-transaction` status, but it is deprecated. Do not implement or send it.
 
 The statuses a pump goes through depend on the flow. In Post-Pay, a pump rests in `free`:
@@ -339,7 +341,7 @@ Now that you're implementing pump, price, and product methods, update the `CAPAB
 
 Added here: `PRODUCTS`. `PRICES`, `PUMPS` and `PUMPSTATUS` are part of the core set from Part 1, and you implement them in this part. (`CLEAR` and `TRANSACTIONS` are for Part 3, but they are shown here for completeness.)
 
-Remember that `CAPABILITY` lists the methods your client *handles*, i.e. the server's requests. `PRICE`, `PUMP` and `PRODUCT` are notifications your client *sends*, so they don't belong in your list.
+`PRODUCT` is a notification your client *sends*, so it belongs in the server's list, not yours. Because product mapping is an extension, the server announces `PRODUCT` in addition to the basic list shown in Part 1.
 
 ---
 

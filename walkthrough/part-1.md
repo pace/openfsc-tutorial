@@ -111,6 +111,8 @@ The tag `C0` is chosen by your client. It only needs to be unique while this req
 
 > **Caution:** The `OK` response itself is still in the *old* encoding. All messages *after* the `OK` use the new encoding.
 
+The spec defines three encodings: `WINDOWS-1252`, `ISO-8859-1` and `UTF-8` (more on request). Use exactly one of these names.
+
 If the encoding is not supported, the server replies with:
 ```
 C0 ERR 404 Unknown encoding
@@ -195,7 +197,7 @@ Keep client-originated tags and server-originated tags separate to avoid collisi
 
 ## Step 7: Implement HEARTBEAT / BEAT
 
-The server will periodically send a `HEARTBEAT` request. **You must respond within 20 seconds**, or the server will consider the connection unstable. By default, the server closes the connection with a `QUIT` after 3 unanswered heartbeats.
+The server sends a `HEARTBEAT` request when it hasn't heard from your client for a while (by default about a minute, see Step 10). **You must respond within 20 seconds**, or the server will consider the connection unstable. By default, the server closes the connection with a `QUIT` after 3 unanswered heartbeats.
 
 An incoming heartbeat looks like:
 ```
@@ -204,7 +206,7 @@ S6 HEARTBEAT 2019-11-13T07:00:04Z
 
 Your client must respond with **two messages** in sequence, both using the same tag:
 
-1. A `BEAT` notification with your current local timestamp in RFC-3339 format:
+1. A `BEAT` message with your current local timestamp in RFC-3339 format. Unlike a notification, it carries the request's tag, not `*`:
 ```
 S6 BEAT 2019-11-13T08:00:05+01:00
 ```
