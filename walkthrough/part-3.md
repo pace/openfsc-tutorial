@@ -12,6 +12,7 @@ In this part:
 - [Step 5: The Pre-Auth Flow](#step-5-the-pre-auth-flow)
 - [Step 6: Implement CLEAR](#step-6-implement-clear)
 - [Step 7: Update Your CAPABILITY Announcement](#step-7-update-your-capability-announcement)
+- [Checklist](#checklist)
 
 ---
 
@@ -515,6 +516,23 @@ Client: * PUMP 3 locked
 - **Not handling the CLEAR retry after reconnect:** Implement all four `CLEAR` response cases (normal, 404, 403, 410) from day one.
 - **Forgetting reconciliation marking:** Transactions cleared via OpenFSC must be flagged as such in your reconciliation lists. This is a requirement, not an option.
 - **Sending LOCKEDPUMP when fuel was dispensed:** Even a tiny amount of dispensed fuel means a `TRANSACTION` must be reported. `LOCKEDPUMP` is strictly for zero-dispense cancellations.
+
+---
+
+## Checklist
+
+- [ ] Report a transaction only if fuel was dispensed (volume above zero).
+- [ ] Never have more than one open transaction per pump (no stacked sales).
+- [ ] Answer `TRANSACTIONS` with all open transactions (or those of one pump), then `OK`; support `UpdateTTL` with a pump.
+- [ ] Check the amounts: net + VAT = gross, volume × price per liter = gross, within one cent.
+- [ ] Post-Pay: at `ready-to-pay`, send the `PUMP` status and the `TRANSACTION` with your own SiteTransactionID.
+- [ ] Pre-Auth: handle `UNLOCKPUMP` (with its error codes) and preset the pump slightly below the `Credit`.
+- [ ] Pre-Auth: use the FSCTransactionID from `UNLOCKPUMP` as SiteTransactionID.
+- [ ] Pre-Auth: handle `LOCKPUMP`, and send `LOCKEDPUMP` when a session ends without fuel.
+- [ ] Answer `CLEAR` with `OK`, then send the pump status (`free` for Post-Pay, `locked` for Pre-Auth).
+- [ ] Answer a retried `CLEAR` with 410, 404 or 403 as described, and keep cleared transactions for a while.
+- [ ] Mark transactions cleared via OpenFSC in your reconciliation lists.
+- [ ] Add `LOCKPUMP` and `UNLOCKPUMP` to your `CAPABILITY` if you support Pre-Auth.
 
 ---
 
