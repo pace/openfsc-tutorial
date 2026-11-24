@@ -1,7 +1,7 @@
-# OpenFSC Client Implementation Walkthrough
-## Part 4: Advanced Topics
+# OpenFSC Tutorial: From Zero to Hero
+## Part 4: Advanced Topics, or: Power-Ups
 
-This part covers optional extensions to the core protocol: Connection Multiplexing and Transaction Information. High Availability will be documented once its replacement is available.
+This part covers optional extensions to the core protocol: Connection Multiplexing and Transaction Information. High Availability will be documented once its replacement is available. None of them is required for a working client, so feel free to skip what you don't need.
 
 In this part:
 
@@ -16,7 +16,7 @@ In this part:
 
 ### What Problem Does It Solve?
 
-By default, each site has its own TCP/WebSocket connection to the OpenFSC server. This also applies if one piece of software connects **several sites** (e.g. a central system serving several sites). One connection per site is fine and the simplest approach.
+By default, each site has its own TCP/WebSocket connection to the OpenFSC server. This also applies if one piece of software connects **several sites** (e.g. a central system serving several sites). One connection per site is fine and the simplest approach. Boring is good here.
 
 Connection Multiplexing lets you run several independent site sessions over **one shared connection**. Each session behaves exactly like a separate connection, with its own login and its own messages, but all sessions share one TCP/WebSocket connection.
 
@@ -315,6 +315,6 @@ Transaction Information (only if agreed with PACE):
 
 ## What's Next
 
-You have reached the end of the walkthrough. The [Reference](reference.md) has the `CAPABILITY` lists, the product categories and all error codes in one place.
+> <img src="../assets/mascot/next.svg" width="40" align="left" alt=""> **Next up:** That's it: you made it from zero to hero. The [Reference](reference.md) has the `CAPABILITY` lists, the product categories and all error codes in one place. Keep it close, you'll be back.
 
 **Previous:** [Part 3: Transactions](part-3.md) · **Next:** [Reference](reference.md)

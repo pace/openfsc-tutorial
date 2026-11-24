@@ -1,7 +1,7 @@
-# OpenFSC Client Implementation Walkthrough
-## Reference
+# OpenFSC Tutorial: From Zero to Hero
+## Reference, or: The Utility Belt
 
-Lookup tables for the walkthrough:
+Lookup tables for the walkthrough. Not exciting, but you'll open this page more often than any other:
 
 - [CAPABILITY Lists](#capability-lists)
 - [Product Categories](#product-categories)

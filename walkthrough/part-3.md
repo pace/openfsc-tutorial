@@ -1,7 +1,7 @@
-# OpenFSC Client Implementation Walkthrough
-## Part 3: Transactions
+# OpenFSC Tutorial: From Zero to Hero
+## Part 3: Transactions, or: Follow the Money
 
-This part is about turning fuelings into payments. It covers how your client reports transactions, how the server tells it that a transaction has been paid, and the two flows your client can support: **Post-Pay** and **Pre-Auth**.
+This is where the money happens. Literally: fuelings go in, payments come out. It covers how your client reports transactions, how the server tells it that a transaction has been paid, and the two flows your client can support: **Post-Pay** and **Pre-Auth**.
 
 In this part:
 
@@ -115,7 +115,7 @@ The **SiteTransactionID** differs between the flows. The Post-Pay and Pre-Auth s
 
 ## Step 4: The Post-Pay Flow
 
-Post-Pay is the most common flow in Germany. The customer fuels first and pays afterward.
+Post-Pay is the most common flow in Germany. The customer fuels first and pays afterward, the trust-based classic.
 
 ### Flow Overview
 
@@ -255,7 +255,7 @@ Then update the pump status:
 
 ### Leaving Headroom for Pump Overrun
 
-The `Credit` in `UNLOCKPUMP` is the maximum amount the customer has authorized. Many pumps do not stop the instant the preset limit is reached: valve closing time and hose pressure typically lead to a small overrun. If you preset the pump to exactly the `Credit`, the customer can end up with more fuel than was authorized.
+The `Credit` in `UNLOCKPUMP` is the maximum amount the customer has authorized. Pumps are like heavy trucks: they need a moment to stop. Many pumps do not stop the instant the preset limit is reached: valve closing time and hose pressure typically lead to a small overrun. If you preset the pump to exactly the `Credit`, the customer can end up with more fuel than was authorized.
 
 We therefore recommend that you **preset the pump to a slightly lower limit than the `Credit`**. The `Credit` itself remains the authorized maximum; only the limit you program into the pump is reduced.
 
@@ -387,7 +387,7 @@ S5 OK
 
 ### Handling CLEAR After Reconnection
 
-This is one of the harder edge cases. If the connection drops while your client is handling a `CLEAR`, the server doesn't know whether the `CLEAR` arrived. It therefore sends the `CLEAR` again after your client reconnects. Your client answers a retried `CLEAR` exactly like a first one, with the codes from the table above:
+This is one of the harder edge cases, and it tends to show up on a Friday afternoon. If the connection drops while your client is handling a `CLEAR`, the server doesn't know whether the `CLEAR` arrived. It therefore sends the `CLEAR` again after your client reconnects. Your client answers a retried `CLEAR` exactly like a first one, with the codes from the table above:
 
 ```mermaid
 flowchart TD
@@ -401,7 +401,7 @@ flowchart TD
     state -- paid in the shop --> e403b["ERR 403<br/>server cancels its payment"]
 ```
 
-A 404 starts an expensive manual process, so keep cleared and shop-paid transactions (with their FSCTransactionID) in your POS for a while, e.g. 24 hours, so you can still answer a retried `CLEAR` with 410 or 403.
+> <img src="../assets/mascot/tip.svg" width="40" align="left" alt=""> **Tip:** A 404 starts an expensive manual process, so keep cleared and shop-paid transactions (with their FSCTransactionID) in your POS for a while, e.g. 24 hours, so you can still answer a retried `CLEAR` with 410 or 403. Your back office will thank you.
 
 Build this logic into your `CLEAR` handler from the start.
 
@@ -517,6 +517,8 @@ Client: * PUMP 3 locked
 
 ## Checklist
 
+> <img src="../assets/mascot/recap.svg" width="40" align="left" alt=""> **Recap:** Report what was fueled, wait for `CLEAR`, release the pump, and never more than one open transaction per pump. Everything else in this part is about doing that reliably.
+
 - [ ] Report a transaction only if fuel was dispensed (volume above zero).
 - [ ] Never have more than one open transaction per pump (no stacked sales).
 - [ ] Answer `TRANSACTIONS` with all open transactions (or those of one pump), then `OK`; support `UpdateTTL` with a pump.
@@ -534,6 +536,6 @@ Client: * PUMP 3 locked
 
 ## What's Next
 
-You now have everything you need to build a complete OpenFSC client for Post-Pay and Pre-Auth. Part 4 covers optional extensions: Connection Multiplexing and Transaction Information. High Availability will be documented later.
+> <img src="../assets/mascot/next.svg" width="40" align="left" alt=""> **Next up:** You now have everything you need to build a complete OpenFSC client for Post-Pay and Pre-Auth. Part 4 covers optional extensions: Connection Multiplexing and Transaction Information. Think of them as power-ups: useful, but you can finish the game without them. High Availability will be documented later.
 
 **Previous:** [Part 2: Products, Prices & Pump Status](part-2.md) · **Next:** [Part 4: Advanced Topics](part-4.md)
