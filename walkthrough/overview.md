@@ -60,9 +60,11 @@ Once the connection is open, both sides can send messages at any time. Most of t
 
 ## Post-Pay and Pre-Auth from the Customer's Point of View
 
-OpenFSC supports the two payment processes you already know from the forecourt. Your site may support one or both. Same pump, same fuel, just a different order of "fuel" and "pay".
+OpenFSC supports the two payment processes you already know from the forecourt. Same pump, same fuel, just a different order of "fuel" and "pay".
 
 The platform derives the process for each fueling from the pump status when the customer selects the pump: a `locked` pump starts the Pre-Auth process, a `free` pump the Post-Pay process. So reporting the right idle status (Part 2) is what decides the process.
+
+> <img src="../assets/mascot/note.svg" width="40" align="left" alt=""> **Note:** PACE recommends implementing both processes in your initial project, even if you only need one today. Adding the other one later means a new implementation project and a second acceptance test.
 
 ### Post-Pay: Fuel First, Then Pay in the App
 

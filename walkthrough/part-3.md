@@ -1,7 +1,7 @@
 # OpenFSC Tutorial: From Zero to Hero
 ## Part 3: Transactions, or: Follow the Money
 
-This is where the money happens. Literally: fuelings go in, payments come out. It covers how your client reports transactions, how the server tells it that a transaction has been paid, and the two flows your client can support: **Post-Pay** and **Pre-Auth**.
+This is where the money happens. Literally: fuelings go in, payments come out. It covers how your client reports transactions, how the server tells it that a transaction has been paid, and the two flows your client should support: **Post-Pay** and **Pre-Auth**.
 
 In this part:
 
